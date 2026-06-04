@@ -1,0 +1,437 @@
+@import "tailwindcss";
+
+/* Design System Kfouri-Laurent Bellue - Inspiré de kfouri-laurentbellue.paris */
+:root {
+  /* Couleurs principales - basées sur l'analyse du site */
+  --klb-primary: #001b5b;          /* Deep navy blue - couleur principale du site */
+  --klb-primary-light: #2ea3f2;    /* Light blue - accents et liens */
+  --klb-primary-dark: #222637;     /* Dark navy - headers et emphasis */
+  --klb-primary-hover: #001a56;    /* Légèrement plus sombre au hover */
+  
+  /* Couleurs secondaires et accents */
+  --klb-secondary: #7e3bd0;        /* Purple accent - highlights spéciaux */
+  --klb-accent: #29c4a9;           /* Teal/turquoise - CTAs */
+  --klb-accent-hover: #25a893;     /* Teal plus sombre */
+  
+  /* Couleurs de classification - harmonisées avec la palette */
+  --klb-c1: #00d084;              /* Vert succès du site */
+  --klb-c2: #29c4a9;              /* Teal accent pour soutien modéré */
+  --klb-c3: #fcb900;              /* Jaune warning */
+  --klb-blacklist: #cf2e2e;       /* Rouge erreur */
+  --klb-linkedin: #0077b5;        /* Bleu LinkedIn officiel */
+  
+  /* Neutrals - palette du site analysé */
+  --klb-white: #ffffff;
+  --klb-off-white: #f4f4f4;
+  --klb-gray-25: #f8f9fa;
+  --klb-gray-50: #f4f4f4;
+  --klb-gray-100: #e5e5e5;
+  --klb-gray-200: #d9d9d9;
+  --klb-gray-300: #d9d9d9;
+  --klb-gray-400: #999999;
+  --klb-gray-500: #666666;
+  --klb-gray-600: #666666;
+  --klb-gray-700: #333333;
+  --klb-gray-800: #2b2b2b;
+  --klb-gray-900: #2b2b2b;
+  
+  /* Texte */
+  --klb-text-primary: #333333;
+  --klb-text-secondary: #666666;
+  --klb-text-light: #999999;
+  --klb-text-inverse: #ffffff;
+  
+  /* Base colors */
+  --background: #ffffff;
+  --foreground: #333333;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+/* Base styles - typographie Acumin Pro du site de référence */
+body {
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--klb-text-primary);
+  background-color: var(--background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--klb-primary-dark);
+  line-height: 1.2;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+h1 { 
+  font-size: 2.75rem; /* 44px - comme sur le site de référence */
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+h2 { 
+  font-size: 2.25rem; /* 36px */
+  font-weight: 600;
+}
+h3 { 
+  font-size: 1.875rem; /* 30px */
+  font-weight: 600;
+}
+h4 { 
+  font-size: 1.5rem; /* 24px */
+  font-weight: 600;
+}
+h5 { 
+  font-size: 1.25rem; /* 20px */
+  font-weight: 500;
+}
+h6 { 
+  font-size: 1.125rem; /* 18px */
+  font-weight: 500;
+}
+
+/* Components - Boutons professionnels */
+.klb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.klb-btn:focus {
+  outline: 2px solid var(--klb-primary);
+  outline-offset: 2px;
+}
+
+.klb-btn-primary {
+  background: var(--klb-primary);
+  color: var(--klb-text-inverse);
+  padding: 0.875rem 1.75rem;
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 27, 91, 0.15);
+  border: 2px solid var(--klb-primary);
+}
+
+.klb-btn-primary:hover {
+  background: var(--klb-primary-hover);
+  border-color: var(--klb-primary-hover);
+  box-shadow: 0 6px 20px rgba(0, 27, 91, 0.25);
+  transform: translateY(-2px);
+}
+
+.klb-btn-secondary {
+  background-color: white;
+  color: var(--klb-gray-700);
+  border: 1.5px solid var(--klb-gray-300);
+  padding: 0.875rem 1.75rem;
+  font-size: 15px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.klb-btn-secondary:hover {
+  background-color: var(--klb-gray-50);
+  border-color: var(--klb-gray-400);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.klb-btn-outline {
+  border: 1.5px solid var(--klb-primary);
+  color: var(--klb-primary);
+  background-color: white;
+  padding: 0.875rem 1.75rem;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.klb-btn-outline:hover {
+  background-color: var(--klb-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
+}
+
+.klb-btn-sm {
+  padding: 0.625rem 1.25rem;
+  font-size: 14px;
+}
+
+/* Cards - Design professionnel */
+.klb-card {
+  background-color: white;
+  border-radius: 0.875rem;
+  border: 1px solid var(--klb-gray-200);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease-in-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.klb-card:hover {
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+  border-color: var(--klb-gray-300);
+}
+
+.klb-card-body {
+  padding: 1.75rem;
+}
+
+.klb-card-header {
+  padding: 1.25rem 1.75rem;
+  border-bottom: 1px solid var(--klb-gray-200);
+  background: linear-gradient(135deg, var(--klb-gray-50) 0%, white 100%);
+}
+
+/* Badges - Classifications améliorées */
+.klb-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.klb-badge-c1 {
+  background: rgba(0, 208, 132, 0.1);
+  color: var(--klb-c1);
+  border: 1px solid var(--klb-c1);
+}
+
+.klb-badge-c2 {
+  background: rgba(41, 196, 169, 0.1);
+  color: var(--klb-c2);
+  border: 1px solid var(--klb-c2);
+}
+
+.klb-badge-c3 {
+  background: rgba(252, 185, 0, 0.1);
+  color: var(--klb-c3);
+  border: 1px solid var(--klb-c3);
+}
+
+.klb-badge-blacklist {
+  background: rgba(207, 46, 46, 0.1);
+  color: var(--klb-blacklist);
+  border: 1px solid var(--klb-blacklist);
+}
+
+.klb-badge-linkedin {
+  background: linear-gradient(135deg, var(--klb-linkedin) 0%, #0e7490 100%);
+  color: white;
+  border: 1px solid var(--klb-linkedin);
+}
+
+.klb-badge-outline {
+  border: 1.5px solid var(--klb-gray-300);
+  color: var(--klb-gray-600);
+  background-color: white;
+}
+
+/* Forms - Éléments de formulaire professionnels */
+.klb-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1.5px solid var(--klb-gray-300);
+  border-radius: 0.5rem;
+  font-size: 15px;
+  font-weight: 400;
+  background-color: white;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.klb-input:focus {
+  outline: none;
+  border-color: var(--klb-primary);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+  background-color: var(--klb-gray-25);
+}
+
+.klb-input::placeholder {
+  color: var(--klb-gray-400);
+  font-weight: 400;
+}
+
+.klb-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--klb-gray-800);
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.025em;
+}
+
+/* Header - Navigation professionnelle sticky comme le site de référence */
+.klb-header {
+  background: var(--klb-white);
+  border-bottom: 1px solid var(--klb-gray-200);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Compensation pour le header fixe */
+.klb-page-content {
+  padding-top: 80px;
+}
+
+/* Logo/Brand style professionnel */
+.klb-brand {
+  font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--klb-primary);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.klb-brand:hover {
+  color: var(--klb-primary-dark);
+}
+
+/* Navigation - Éléments de navigation selon le site de référence */
+.klb-nav-item {
+  padding: 0.75rem 1rem;
+  color: var(--klb-text-primary);
+  border-radius: 0.375rem;
+  transition: all 0.25s ease-in-out;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 16px;
+  position: relative;
+}
+
+.klb-nav-item:hover {
+  color: var(--klb-primary-light);
+  background-color: rgba(0, 27, 91, 0.05);
+}
+
+.klb-nav-item-active {
+  color: var(--klb-primary);
+  background: rgba(0, 27, 91, 0.1);
+  font-weight: 600;
+}
+
+/* Utilities */
+.klb-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .klb-container {
+    padding: 0 2rem;
+  }
+}
+
+.klb-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.klb-grid-responsive {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media (min-width: 768px) {
+  .klb-grid-responsive {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .klb-grid-responsive {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .klb-grid-responsive {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.klb-text-muted {
+  color: var(--klb-gray-500);
+}
+
+.klb-text-small {
+  font-size: 14px;
+  color: var(--klb-gray-600);
+  font-weight: 500;
+}
+
+.klb-stat {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--klb-primary);
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+/* Focus styles for accessibility */
+.focus-ring:focus {
+  outline: 2px solid var(--klb-primary);
+  outline-offset: 2px;
+}
+
+/* Link styles */
+.klb-link {
+  color: var(--klb-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.klb-link:hover {
+  color: var(--klb-primary-hover);
+}
+
+/* Loading states */
+.klb-skeleton {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background-color: var(--klb-gray-200);
+  border-radius: 0.25rem;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}

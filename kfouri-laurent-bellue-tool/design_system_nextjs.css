@@ -1,0 +1,565 @@
+/* 
+ * Professional Legal Website Design System
+ * Based on kfouri-laurentbellue.paris analysis
+ * For Next.js Application
+ */
+
+:root {
+  /* ============================================
+     COLOR PALETTE
+     ============================================ */
+  
+  /* Primary Colors - Professional Blue/Navy Theme */
+  --color-primary: #001b5b;          /* Deep navy blue - main brand color */
+  --color-primary-light: #2ea3f2;    /* Light blue - accents and links */
+  --color-primary-dark: #222637;     /* Dark navy - headers and emphasis */
+  
+  /* Secondary Colors */
+  --color-secondary: #7e3bd0;        /* Purple accent - special highlights */
+  --color-secondary-light: #9b51e0;  /* Light purple */
+  --color-accent: #29c4a9;           /* Teal/turquoise - CTAs */
+  
+  /* Neutral Colors */
+  --color-white: #ffffff;
+  --color-off-white: #f4f4f4;
+  --color-light-gray: #e5e5e5;
+  --color-gray: #d9d9d9;
+  --color-medium-gray: #999999;
+  --color-dark-gray: #666666;
+  --color-charcoal: #3e3e3e;
+  --color-black: #2b2b2b;
+  
+  /* Text Colors */
+  --color-text-primary: #333333;     /* Main body text */
+  --color-text-secondary: #666666;   /* Secondary text */
+  --color-text-light: #999999;       /* Muted text */
+  --color-text-inverse: #ffffff;     /* Text on dark backgrounds */
+  
+  /* Background Colors */
+  --color-bg-primary: #ffffff;       /* Main background */
+  --color-bg-secondary: #f4f4f4;     /* Section backgrounds */
+  --color-bg-light: #f8f9fa;         /* Light sections */
+  --color-bg-dark: #222637;          /* Dark sections */
+  --color-bg-footer: #001b5b;        /* Footer background */
+  
+  /* State Colors */
+  --color-success: #00d084;
+  --color-warning: #fcb900;
+  --color-error: #cf2e2e;
+  --color-info: #0693e3;
+  
+  /* Overlay Colors */
+  --color-overlay-light: rgba(255, 255, 255, 0.9);
+  --color-overlay-dark: rgba(0, 0, 0, 0.5);
+  --color-overlay-subtle: rgba(0, 0, 0, 0.05);
+  
+  /* ============================================
+     TYPOGRAPHY
+     ============================================ */
+  
+  /* Font Families */
+  --font-primary: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-secondary: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Courier New', monospace;
+  
+  /* Font Sizes - Desktop */
+  --font-size-xs: 0.75rem;     /* 12px */
+  --font-size-sm: 0.875rem;    /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-md: 1.125rem;    /* 18px */
+  --font-size-lg: 1.25rem;     /* 20px */
+  --font-size-xl: 1.5rem;      /* 24px */
+  --font-size-2xl: 1.875rem;   /* 30px */
+  --font-size-3xl: 2.25rem;    /* 36px */
+  --font-size-4xl: 2.75rem;    /* 44px */
+  --font-size-5xl: 3.5rem;     /* 56px */
+  
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 1.75;
+  
+  /* Font Weights */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Letter Spacing */
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  --letter-spacing-widest: 0.1em;
+  
+  /* ============================================
+     SPACING SYSTEM
+     ============================================ */
+  
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;    /* 4px */
+  --spacing-2: 0.5rem;     /* 8px */
+  --spacing-3: 0.75rem;    /* 12px */
+  --spacing-4: 1rem;       /* 16px */
+  --spacing-5: 1.25rem;    /* 20px */
+  --spacing-6: 1.5rem;     /* 24px */
+  --spacing-7: 1.75rem;    /* 28px */
+  --spacing-8: 2rem;       /* 32px */
+  --spacing-9: 2.5rem;     /* 40px */
+  --spacing-10: 3rem;      /* 48px */
+  --spacing-12: 4rem;      /* 64px */
+  --spacing-16: 6rem;      /* 96px */
+  --spacing-20: 8rem;      /* 128px */
+  
+  /* ============================================
+     LAYOUT
+     ============================================ */
+  
+  --container-max-width: 1200px;
+  --container-padding: var(--spacing-4);
+  --section-padding-y: var(--spacing-12);
+  --section-padding-y-mobile: var(--spacing-8);
+  
+  /* ============================================
+     BORDERS
+     ============================================ */
+  
+  --border-width-thin: 1px;
+  --border-width-medium: 2px;
+  --border-width-thick: 4px;
+  
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+  --border-radius-full: 9999px;
+  
+  --border-color-default: var(--color-light-gray);
+  --border-color-light: var(--color-gray);
+  --border-color-dark: var(--color-medium-gray);
+  
+  /* ============================================
+     SHADOWS
+     ============================================ */
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  
+  /* ============================================
+     TRANSITIONS
+     ============================================ */
+  
+  --transition-fast: 150ms ease-in-out;
+  --transition-base: 250ms ease-in-out;
+  --transition-slow: 350ms ease-in-out;
+  
+  --transition-property-common: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  --transition-property-colors: background-color, border-color, color, fill, stroke;
+  --transition-property-opacity: opacity;
+  --transition-property-shadow: box-shadow;
+  --transition-property-transform: transform;
+  
+  /* ============================================
+     Z-INDEX SCALE
+     ============================================ */
+  
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+}
+
+/* ============================================
+   GLOBAL STYLES
+   ============================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+}
+
+/* ============================================
+   TYPOGRAPHY STYLES
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 var(--spacing-4) 0;
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-primary-dark);
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+h2 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+h3 {
+  font-size: var(--font-size-2xl);
+}
+
+h4 {
+  font-size: var(--font-size-xl);
+}
+
+h5 {
+  font-size: var(--font-size-lg);
+}
+
+h6 {
+  font-size: var(--font-size-md);
+}
+
+p {
+  margin: 0 0 var(--spacing-4) 0;
+  line-height: var(--line-height-relaxed);
+}
+
+a {
+  color: var(--color-primary-light);
+  text-decoration: none;
+  transition: color var(--transition-base);
+}
+
+a:hover {
+  color: var(--color-primary);
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+.btn {
+  display: inline-block;
+  padding: var(--spacing-3) var(--spacing-6);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  border: var(--border-width-medium) solid transparent;
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-base);
+}
+
+.btn-primary {
+  color: var(--color-text-inverse);
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-secondary {
+  color: var(--color-primary);
+  background-color: transparent;
+  border-color: var(--color-primary);
+}
+
+.btn-secondary:hover {
+  color: var(--color-text-inverse);
+  background-color: var(--color-primary);
+}
+
+.btn-accent {
+  color: var(--color-text-inverse);
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.btn-accent:hover {
+  background-color: #25a893;
+  border-color: #25a893;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-large {
+  padding: var(--spacing-4) var(--spacing-8);
+  font-size: var(--font-size-lg);
+}
+
+.btn-small {
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--font-size-sm);
+}
+
+/* ============================================
+   CARD STYLES
+   ============================================ */
+
+.card {
+  background-color: var(--color-white);
+  border: var(--border-width-thin) solid var(--border-color-default);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-6);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-4px);
+}
+
+.card-header {
+  margin-bottom: var(--spacing-4);
+  padding-bottom: var(--spacing-4);
+  border-bottom: var(--border-width-thin) solid var(--border-color-default);
+}
+
+.card-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-dark);
+}
+
+.card-body {
+  color: var(--color-text-secondary);
+}
+
+/* ============================================
+   NAVIGATION STYLES
+   ============================================ */
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-index-sticky);
+  background-color: var(--color-white);
+  border-bottom: var(--border-width-thin) solid var(--border-color-default);
+  box-shadow: var(--shadow-sm);
+}
+
+.navbar-container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: var(--spacing-4) var(--container-padding);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-brand {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.navbar-menu {
+  display: flex;
+  gap: var(--spacing-8);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-link {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-base);
+}
+
+.navbar-link:hover {
+  color: var(--color-primary);
+}
+
+.navbar-link.active {
+  color: var(--color-primary);
+  border-bottom: var(--border-width-medium) solid var(--color-primary);
+  padding-bottom: var(--spacing-1);
+}
+
+/* ============================================
+   CONTAINER & LAYOUT
+   ============================================ */
+
+.container {
+  width: 100%;
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 var(--container-padding);
+}
+
+.section {
+  padding: var(--section-padding-y) 0;
+}
+
+.section-dark {
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-inverse);
+}
+
+.section-light {
+  background-color: var(--color-bg-light);
+}
+
+.section-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+/* ============================================
+   FORM STYLES
+   ============================================ */
+
+.form-group {
+  margin-bottom: var(--spacing-4);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--spacing-2);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.form-control {
+  width: 100%;
+  padding: var(--spacing-3) var(--spacing-4);
+  font-family: var(--font-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-white);
+  border: var(--border-width-thin) solid var(--border-color-default);
+  border-radius: var(--border-radius-md);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(0, 27, 91, 0.1);
+}
+
+.form-control:disabled {
+  background-color: var(--color-bg-secondary);
+  cursor: not-allowed;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.text-primary { color: var(--color-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-light { color: var(--color-text-light); }
+.text-white { color: var(--color-white); }
+
+.bg-primary { background-color: var(--color-primary); }
+.bg-light { background-color: var(--color-bg-light); }
+.bg-dark { background-color: var(--color-bg-dark); }
+
+.mt-0 { margin-top: var(--spacing-0); }
+.mt-1 { margin-top: var(--spacing-1); }
+.mt-2 { margin-top: var(--spacing-2); }
+.mt-3 { margin-top: var(--spacing-3); }
+.mt-4 { margin-top: var(--spacing-4); }
+.mt-5 { margin-top: var(--spacing-5); }
+.mt-6 { margin-top: var(--spacing-6); }
+.mt-8 { margin-top: var(--spacing-8); }
+
+.mb-0 { margin-bottom: var(--spacing-0); }
+.mb-1 { margin-bottom: var(--spacing-1); }
+.mb-2 { margin-bottom: var(--spacing-2); }
+.mb-3 { margin-bottom: var(--spacing-3); }
+.mb-4 { margin-bottom: var(--spacing-4); }
+.mb-5 { margin-bottom: var(--spacing-5); }
+.mb-6 { margin-bottom: var(--spacing-6); }
+.mb-8 { margin-bottom: var(--spacing-8); }
+
+.p-0 { padding: var(--spacing-0); }
+.p-1 { padding: var(--spacing-1); }
+.p-2 { padding: var(--spacing-2); }
+.p-3 { padding: var(--spacing-3); }
+.p-4 { padding: var(--spacing-4); }
+.p-5 { padding: var(--spacing-5); }
+.p-6 { padding: var(--spacing-6); }
+.p-8 { padding: var(--spacing-8); }
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    --font-size-base: 0.9375rem; /* 15px */
+  }
+  
+  h1 { font-size: var(--font-size-3xl); }
+  h2 { font-size: var(--font-size-2xl); }
+  h3 { font-size: var(--font-size-xl); }
+  h4 { font-size: var(--font-size-lg); }
+  
+  .section {
+    padding: var(--section-padding-y-mobile) 0;
+  }
+  
+  .navbar-menu {
+    flex-direction: column;
+    gap: var(--spacing-4);
+  }
+  
+  .container {
+    padding: 0 var(--spacing-3);
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --font-size-base: 0.875rem; /* 14px */
+  }
+  
+  h1 { font-size: var(--font-size-2xl); }
+  h2 { font-size: var(--font-size-xl); }
+  h3 { font-size: var(--font-size-lg); }
+  h4 { font-size: var(--font-size-md); }
+}

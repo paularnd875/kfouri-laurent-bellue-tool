@@ -1,0 +1,105 @@
+/* Design System CSS Variables */
+/* Extracted from kfouri-laurentbellue.paris */
+
+:root {
+  /* Colors */
+  --color-1: rgb(254,205,165);
+  --color-2: rgba(0, 0, 0, 0.2);
+  --color-3: rgb(155,81,224);
+  --color-4: rgb(255, 255, 255);
+  --color-5: rgba(0,0,0,.2);
+  --color-6: #ccc;
+  --color-7: #0693e3;
+  --color-8: #fff;
+  --color-9: #d9d9d9;
+  --color-10: #3e3e3e;
+  --color-11: #FFFFFF;
+  --color-12: #29c4a9;
+  --color-13: #2ea3f2;
+  --color-14: rgb(2,3,129);
+  --color-15: #2b2b2b;
+  --color-16: #ffffff08;
+  --color-17: rgb(113,206,126);
+  --color-18: #000;
+  --color-19: rgb(255,206,236);
+  --color-20: #000a;
+
+  /* Text Colors */
+  --text-color-1: #ccc;
+  --text-color-2: #3e3e3e;
+  --text-color-3: #FFFFFF;
+  --text-color-4: #82c0c7;
+  --text-color-5: #999;
+
+  /* Background Colors */
+  --bg-color-1: #d9d9d9;
+  --bg-color-2: #29c4a9;
+  --bg-color-3: #2ea3f2;
+  --bg-color-4: #2b2b2b;
+  --bg-color-5: #ffffff08;
+
+  /* Typography */
+  --font-family-1: ETmodules;
+  --font-family-2: "acumin-pro",sans-serif!important}body #page-container .et_pb_section .et_pb_contact_form_0.et_pb_contact_form_container.et_pb_module .et_pb_button{color:#FFFFFF!important;
+  --font-family-3: acumin-pro-condensed,sans-serif}.et_pb_toggle .et_pb_toggle_title{padding:0px!important}.lwp-toggle-icon.et_pb_toggle .et_pb_toggle_title:before,.lwp-toggle-icon .et_pb_toggle .et_pb_toggle_title:before{content:'\4c'}.lwp-toggle-icon.et_pb_toggle_open .et_pb_toggle_title:before{content:'\4c'}@media (min-width:981px){.et_pb_gutters3 .et_pb_column_1_2 .et_pb_module,.et_pb_gutters3.et_pb_row .et_pb_column_1_2 .et_pb_module{margin-bottom:0%}}.et_pb_toggle_close{padding:10px}.accordion-numbers .et_pb_toggle_title::before{counter-increment:section;
+
+  /* Font Sizes */
+  --font-size-1: 13px;
+  --font-size-2: 14px;
+  --font-size-3: 16px;
+  --font-size-4: 16px}.et_pb_contact_field[data-type=booleancheckbox] .et_pb_contact_field_options_title{display:inline-block}.et_pb_contact_field[data-type=select]{position:relative}.et_pb_contact_field[data-type=select]:after{content:"";
+  --font-size-5: 20px;
+  --font-size-6: 21px;
+  --font-size-7: 22px;
+
+  /* Spacing */
+  --spacing-1: #333}.et_pb_contact_main_title{word-wrap:break-word}.et_pb_contact_submit{color:#2ea3f2}.et_pb_contact_form{margin-left:-3%}.et_pb_contact_reset:hover,.et_pb_contact_submit:hover{background-color:rgba(0,0,0,.05)}.et_pb_contact_reset:hover{padding:.3em;
+  --spacing-2: (max-width:765px){.et_pb_toggle{padding-bottom:0px!important;
+  --spacing-3: (max-width:767px){.et_pb_toggle.et_pb_text_align_left-phone;
+  --spacing-4: (max-width:980px){#et-boc;
+  --spacing-5: (min-width:981px){#et-boc;
+  --spacing-6: -1px;
+  --spacing-7: .3em;
+  --spacing-8: .7em}.et_pb_button:hover{background-color:hsla(0,0%,100%,.2)}.et_pb_bg_layout_light.et_pb_button:hover,.et_pb_bg_layout_light;
+  --spacing-9: .area-outer-wrap[data-da-type=popup]{min-width:320px;
+  --spacing-10: .area-outer-wrap[data-da-type=popup]{width:100%}}@media;
+}
+
+/* Component Styles */
+
+/* Typography */
+body {
+  font-family: var(--font-family-1, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  color: var(--text-color-1, #333);
+  background-color: var(--bg-color-1, #fff);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-1);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Buttons */
+.btn, button {
+  padding: var(--spacing-2, 0.5rem) var(--spacing-3, 1rem);
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+/* Cards */
+.card {
+  padding: var(--spacing-4, 1.5rem);
+  border-radius: 8px;
+  background: var(--bg-color-2, #f8f9fa);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Layout */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-3, 1rem);
+}

@@ -1,0 +1,279 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+interface DashboardStats {
+  totalLawyers: number;
+  totalFirms: number;
+  bernardLinkedIn: number;
+  sabineLinkedIn: number;
+  linkedInCoverage: number;
+  classifications: {
+    c1: number;
+    c2: number;
+    c3: number;
+    blacklist: number;
+  };
+  classificationRate: number;
+  supportPercentage: number;
+  lastUpdated?: string;
+}
+
+export default function Home() {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalLawyers: 0,
+    totalFirms: 0,
+    bernardLinkedIn: 0,
+    sabineLinkedIn: 0,
+    linkedInCoverage: 0,
+    classifications: {
+      c1: 0,
+      c2: 0,
+      c3: 0,
+      blacklist: 0
+    },
+    classificationRate: 0,
+    supportPercentage: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/admin-stats');
+      const result = await response.json();
+      
+      if (result.success) {
+        setStats({
+          totalLawyers: result.stats.totalLawyers,
+          totalFirms: result.stats.totalFirms,
+          bernardLinkedIn: result.stats.bernardLinkedIn,
+          sabineLinkedIn: result.stats.sabineLinkedIn,
+          linkedInCoverage: result.stats.linkedInCoverage,
+          classifications: result.stats.classifications,
+          classificationRate: result.stats.classificationRate,
+          supportPercentage: result.stats.supportPercentage,
+          lastUpdated: result.metadata.lastUpdated
+        });
+        setError(null);
+      } else {
+        setError(result.error || 'Erreur lors du chargement des données');
+      }
+    } catch (err) {
+      setError('Erreur de connexion: ' + (err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+      {/* Header Sticky */}
+      <header className="klb-header">
+        <div className="klb-container py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-6">
+              <Link href="/" className="klb-brand">
+                Kfouri & Laurent-Bellue
+              </Link>
+              <span className="klb-badge-outline">
+                🗳️ Élections Bâtonnier 2025
+              </span>
+            </div>
+            <nav className="flex items-center space-x-4">
+              <Link href="/bernard" className="klb-nav-item">
+                Réseau Bernard
+              </Link>
+              <Link href="/sabine" className="klb-nav-item">
+                Réseau Sabine
+              </Link>
+              <Link href="/cabinets-ventres-mous" className="klb-nav-item">
+                Cabinets Ventres Mous
+              </Link>
+              <Link href="/admin" className="klb-nav-item">
+                Administration
+              </Link>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="klb-page-content klb-container py-8">
+        {/* Welcome Section */}
+        <div className="mb-8 text-center">
+          <h2 className="text-4xl font-bold text-gray-800 mb-4">
+            Tableau de Bord de Campagne
+          </h2>
+          <p className="text-lg klb-text-muted max-w-2xl mx-auto">
+            Outil de gestion et d'analyse des relations pour les élections du Conseil de l'Ordre 
+            des avocats du barreau de Paris - Décembre 2025
+          </p>
+          {loading && (
+            <div className="mt-4 text-blue-600">
+              <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></span>
+              Chargement des données...
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg inline-block">
+              <span className="text-red-700">❌ {error}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Stats Cards */}
+        <div className="klb-grid klb-grid-responsive mb-8">
+          {/* Total Lawyers */}
+          <div className="klb-card">
+            <div className="klb-card-body text-center">
+              <div className="klb-stat">{stats.totalLawyers}</div>
+              <h3 className="text-lg font-semibold text-gray-700">Avocats Total</h3>
+              <p className="klb-text-small">Base de données complète</p>
+            </div>
+          </div>
+
+          {/* Total Firms */}
+          <div className="klb-card">
+            <div className="klb-card-body text-center">
+              <div className="klb-stat">{stats.totalFirms}</div>
+              <h3 className="text-lg font-semibold text-gray-700">Cabinets</h3>
+              <p className="klb-text-small">Structures analysées</p>
+            </div>
+          </div>
+
+          {/* Bernard LinkedIn */}
+          <div className="klb-card">
+            <div className="klb-card-body text-center">
+              <div className="klb-stat">{stats.bernardLinkedIn}</div>
+              <h3 className="text-lg font-semibold text-gray-700">Réseau Bernard</h3>
+              <div className="klb-badge-linkedin mt-2">LinkedIn</div>
+            </div>
+          </div>
+
+          {/* Sabine LinkedIn */}
+          <div className="klb-card">
+            <div className="klb-card-body text-center">
+              <div className="klb-stat">{stats.sabineLinkedIn}</div>
+              <h3 className="text-lg font-semibold text-gray-700">Réseau Sabine</h3>
+              <div className="klb-badge-linkedin mt-2">LinkedIn</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Classifications Overview */}
+        <div className="klb-card mb-8">
+          <div className="klb-card-header">
+            <h3 className="text-xl font-semibold text-gray-800">Classification des Contacts</h3>
+          </div>
+          <div className="klb-card-body">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="klb-stat text-green-600">{stats.classifications.c1}</div>
+                <div className="klb-badge-c1 mt-2">C1 - Soutien Fort</div>
+              </div>
+              <div className="text-center">
+                <div className="klb-stat text-green-500">{stats.classifications.c2}</div>
+                <div className="klb-badge-c2 mt-2">C2 - Soutien Modéré</div>
+              </div>
+              <div className="text-center">
+                <div className="klb-stat" style={{ color: 'var(--klb-c3)' }}>{stats.classifications.c3}</div>
+                <div className="klb-badge-c3 mt-2">C3 - Neutre</div>
+              </div>
+              <div className="text-center">
+                <div className="klb-stat text-red-600">{stats.classifications.blacklist}</div>
+                <div className="klb-badge-blacklist mt-2">Blacklist</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="klb-grid klb-grid-responsive">
+          <Link href="/search" className="klb-card hover:scale-105 transition-transform">
+            <div className="klb-card-body text-center">
+              <div className="text-4xl mb-4">🔍</div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Recherche Avocats</h3>
+              <p className="klb-text-small">Trouver et analyser les profils</p>
+            </div>
+          </Link>
+
+          <Link href="/classification" className="klb-card hover:scale-105 transition-transform">
+            <div className="klb-card-body text-center">
+              <div className="text-4xl mb-4">📊</div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Classification</h3>
+              <p className="klb-text-small">Gérer les étiquettes C1-C2-C3</p>
+            </div>
+          </Link>
+
+          <Link href="/cabinets-analysis" className="klb-card hover:scale-105 transition-transform">
+            <div className="klb-card-body text-center">
+              <div className="text-4xl mb-4">🏢</div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Analyse Cabinets</h3>
+              <p className="klb-text-small">Tri par taux de participation</p>
+            </div>
+          </Link>
+
+          <div className="klb-card hover:scale-105 transition-transform">
+            <div className="klb-card-body text-center">
+              <div className="text-4xl mb-4">📥</div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Test Google Sheets</h3>
+              <p className="klb-text-small mb-4">Tester l'accès aux données</p>
+              <button 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/test-sheets');
+                    const result = await response.json();
+                    alert(response.ok ? 'Connexion réussie !' : `Erreur: ${result.error}`);
+                  } catch (error) {
+                    alert('Erreur de connexion: ' + error);
+                  }
+                }}
+                className="klb-btn-primary"
+              >
+                🧪 Test
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Status Bar */}
+        <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${error ? 'bg-red-500' : loading ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+              <span className="klb-text-small font-medium">
+                {error ? 'Erreur de connexion' : loading ? 'Chargement...' : 'Système opérationnel'}
+              </span>
+            </div>
+            <div className="klb-text-small">
+              {stats.lastUpdated ? (
+                `Dernière synchronisation: ${new Date(stats.lastUpdated).toLocaleString('fr-FR')}`
+              ) : (
+                'Dernière synchronisation: En attente...'
+              )}
+            </div>
+          </div>
+          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-600">
+            <span>Taux de classification: {stats.classificationRate}%</span>
+            <span>Score de soutien: {stats.supportPercentage}%</span>
+            <span>Couverture LinkedIn: {stats.linkedInCoverage}%</span>
+            <button 
+              onClick={fetchStats} 
+              className="klb-btn-outline text-xs py-1 px-2 ml-auto"
+              disabled={loading}
+            >
+              🔄 Actualiser
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

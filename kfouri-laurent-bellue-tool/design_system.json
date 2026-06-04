@@ -1,0 +1,230 @@
+{
+  "colors": {
+    "all_colors": [
+      "rgb(254,205,165)",
+      "rgba(0, 0, 0, 0.2)",
+      "rgb(155,81,224)",
+      "rgb(255, 255, 255)",
+      "rgba(0,0,0,.2)",
+      "#ccc",
+      "#0693e3",
+      "#fff",
+      "#d9d9d9",
+      "#3e3e3e",
+      "#FFFFFF",
+      "#29c4a9",
+      "#2ea3f2",
+      "rgb(2,3,129)",
+      "#2b2b2b",
+      "#ffffff08",
+      "rgb(113,206,126)",
+      "#000",
+      "rgb(255,206,236)",
+      "#000a",
+      "#00d084",
+      "rgba(0,139,219,.247059)",
+      "#cf2e2e",
+      "rgb(238,238,238)",
+      "#abb8c3",
+      "rgb(254,45,45)",
+      "rgba(0,0,0,.07)",
+      "rgb(207,42,186)",
+      "#82c0c7",
+      "rgb(122,220,180)",
+      "rgb(151,120,209)",
+      "#001b5b",
+      "#464646",
+      "rgb(251,105,98)",
+      "#e5e5e5",
+      "rgb(255,203,112)",
+      "rgb(202,248,128)",
+      "#fcb900",
+      "rgb(207,46,46)",
+      "rgb(199,81,192)",
+      "rgba(0, 0, 0, 0.4)",
+      "#666",
+      "#bbb",
+      "#999",
+      "#0002",
+      "rgba(0,0,0,.55)",
+      "rgb(252,185,0)",
+      "rgb(238,44,130)",
+      "rgba(0,0,0,.3)",
+      "rgb(169,184,195)"
+    ],
+    "primary_colors": [],
+    "text_colors": [
+      "#ccc",
+      "#3e3e3e",
+      "#FFFFFF",
+      "#82c0c7",
+      "#999",
+      "#333",
+      "#974df3",
+      "#2d3940",
+      "#4e4e4e",
+      "#555"
+    ],
+    "background_colors": [
+      "#d9d9d9",
+      "#29c4a9",
+      "#2ea3f2",
+      "#2b2b2b",
+      "#ffffff08",
+      "#001b5b",
+      "#464646",
+      "#666",
+      "#bbb",
+      "#0002",
+      "rgba(0,0,0,.55)",
+      "rgba(0,0,0,.05)",
+      "hsla(0,0%,100%,.9)",
+      "#fff3",
+      "#f95055",
+      "#fff0",
+      "#e2e2e2",
+      "#ddd",
+      "#fff2",
+      "#32373c",
+      "#f4f4f4",
+      "hsla(0,0%,100%,.2)",
+      "#f3f3f3",
+      "#222637",
+      "#7e3bd0",
+      "#00000008"
+    ]
+  },
+  "typography": {
+    "font_families": [
+      "ETmodules",
+      "\"acumin-pro\",sans-serif!important}body #page-container .et_pb_section .et_pb_contact_form_0.et_pb_contact_form_container.et_pb_module .et_pb_button{color:#FFFFFF!important",
+      "acumin-pro-condensed,sans-serif}.et_pb_toggle .et_pb_toggle_title{padding:0px!important}.lwp-toggle-icon.et_pb_toggle .et_pb_toggle_title:before,.lwp-toggle-icon .et_pb_toggle .et_pb_toggle_title:before{content:'\\4c'}.lwp-toggle-icon.et_pb_toggle_open .et_pb_toggle_title:before{content:'\\4c'}@media (min-width:981px){.et_pb_gutters3 .et_pb_column_1_2 .et_pb_module,.et_pb_gutters3.et_pb_row .et_pb_column_1_2 .et_pb_module{margin-bottom:0%}}.et_pb_toggle_close{padding:10px}.accordion-numbers .et_pb_toggle_title::before{counter-increment:section",
+      "Open Sans,Arial,sans-serif",
+      "inherit",
+      "inherit}img{max-width:100%",
+      "Courier New,monospace",
+      "Open Sans,sans-serif",
+      "\"acumin-pro-condensed\",sans-serif!important",
+      "\"acumin-pro\",sans-serif!important}.et_pb_contact_form_0 .input[type=\"radio\"]:checked+label i:before{background-color:#222637}.et_pb_contact_form_0 .input[type=\"radio\"]:checked:active+label i:before{background-color:#000000}.et_pb_text_0.et_pb_module,.et_pb_text_1.et_pb_module{margin-left:auto!important"
+    ],
+    "font_sizes": [
+      "var(--wp--preset--font-size--large) !important",
+      "16px}.et_pb_contact_field[data-type=booleancheckbox] .et_pb_contact_field_options_title{display:inline-block}.et_pb_contact_field[data-type=select]{position:relative}.et_pb_contact_field[data-type=select]:after{content:\"\"",
+      "16px",
+      "22px",
+      "26px}.et-pb-contact-message{position:relative}.et_pb_column_1_3 .et_pb_contact_main_title,.et_pb_column_1_4 .et_pb_contact_main_title,.et_pb_column_1_5 .et_pb_contact_main_title,.et_pb_column_1_6 .et_pb_contact_main_title,.et_pb_column_2_5 .et_pb_contact_main_title{font-size:22px}.et_pb_contact_right{display:inline-block",
+      "inherit!important",
+      "44px",
+      "21px",
+      "20px",
+      "13px",
+      "14px",
+      "96px",
+      "30px!important",
+      "30px}h2{font-size:26px}h3{font-size:22px}h4{font-size:18px}h5{font-size:16px}h6{font-size:14px}input{-webkit-appearance:none}input[type=checkbox]{-webkit-appearance:checkbox}input[type=radio]{-webkit-appearance:radio}input.text,input.title,input[type=email],input[type=password],input[type=tel],input[type=text],select,textarea{background-color:#fff",
+      "var(--wp--preset--font-size--small) !important",
+      "0",
+      "inherit",
+      "32px",
+      "var(--wp--preset--font-size--medium) !important",
+      "100%"
+    ],
+    "headings": {
+      "h2": {
+        "text": "NOTRE Déclaration de candidature",
+        "classes": [
+          "et_pb_toggle_title"
+        ]
+      }
+    }
+  },
+  "layout": {},
+  "components": {
+    "buttons": [
+      {
+        "text": "Je vote",
+        "classes": [
+          "et_pb_button",
+          "et_pb_button_0",
+          "et_pb_bg_layout_light"
+        ],
+        "style": ""
+      },
+      {
+        "text": "ENVOYER",
+        "classes": [
+          "et_pb_contact_submit",
+          "et_pb_button"
+        ],
+        "style": ""
+      }
+    ],
+    "navigation": [
+      {
+        "tag": "header",
+        "classes": [
+          "et-l",
+          "et-l--header"
+        ],
+        "style": ""
+      }
+    ],
+    "cards": [
+      {
+        "tag": "div",
+        "classes": [
+          "et_pb_module",
+          "et_pb_contact_form_0",
+          "et_pb_contact_form_container",
+          "clearfix"
+        ],
+        "style": ""
+      },
+      {
+        "tag": "div",
+        "classes": [
+          "et_contact_bottom_container"
+        ],
+        "style": ""
+      }
+    ]
+  },
+  "spacing": {
+    "values": [
+      "27px 0}.et_pb_section{padding:54px 0}.single.et_pb_pagebuilder_layout.et_full_width_page .et_post_meta_wrapper{padding-top:81px}.et_pb_fullwidth_section{padding:0}}.et_pb_section_0_tb_header.et_pb_section{padding-top:0px",
+      "0 50px 0 0}}\n.et_pb_code_inner{position:relative}\n.et_pb_with_border .et_pb_contact_form .input[type=checkbox]+label i,.et_pb_with_border .et_pb_contact_form .input[type=radio]+label i,.et_pb_with_border .et_pb_contact_form input,.et_pb_with_border .et_pb_contact_form select,.et_pb_with_border .et_pb_contact_form textarea{border:0 solid #333}.et_pb_contact_main_title{word-wrap:break-word}.et_pb_contact_submit{color:#2ea3f2}.et_pb_contact_form{margin-left:-3%}.et_pb_contact_reset:hover,.et_pb_contact_submit:hover{background-color:rgba(0,0,0,.05)}.et_pb_contact_reset:hover{padding:.3em 1em}.et_pb_contact_form [data-conditional-logic]{display:none}.et_pb_contact .et_pb_contact_form p.et_contact_error .et_pb_contact_field_radio_title,.et_pb_contact .et_pb_contact_form p.et_contact_error .et_pb_contact_field_radio label,.et_pb_contact .et_pb_contact_form p.et_contact_error input[type=checkbox]+label{color:red!important}.et_pb_contact_form p[data-id=et_number]{position:absolute!important",
+      "10px}@media screen and (min-width:981px){#et-boc .area-outer-wrap[data-da-type=popup]{width:90%}}@media screen and (max-width:980px){#et-boc .area-outer-wrap[data-da-type=popup]{width:100%}}@media (min-width:981px){#et-boc .area-outer-wrap .et_pb_row.et_pb_equal_columns,#et-boc .area-outer-wrap .et_pb_row_inner.et_pb_equal_columns,#et-boc .area-outer-wrap .et_pb_section.et_pb_equal_columns>.et_pb_row{-webkit-box-flex:1",
+      ".3em 1em",
+      ".3em 1em}.et_button_no_icon .et_pb_button:after{display:none}.et_button_no_icon.et_button_icon_visible.et_button_left .et_pb_button,.et_button_no_icon.et_button_left .et_pb_button:hover,.et_button_no_icon .et_pb_button,.et_button_no_icon .et_pb_button:hover{padding:.3em 1em!important}.et_button_custom_icon .et_pb_button:after{line-height:1.7em}.et_button_custom_icon.et_button_icon_visible .et_pb_button:after,.et_button_custom_icon .et_pb_button:hover:after{margin-left:.3em}#left-area .post_format-post-format-gallery .wp-block-gallery:first-of-type{padding:0",
+      "0 0 15px",
+      "9px}.et-safe-mode-indicator,.et-safe-mode-indicator:focus,.et-safe-mode-indicator:hover{-webkit-box-shadow:0 5px 10px rgba(41,196,169,.15)",
+      "25px}.et_pb_newsletter .et_pb_module_header:empty{display:none}.et_pb_newsletter_description p:last-of-type{padding-bottom:0}.et_pb_newsletter_description_no_title.et_pb_newsletter_description_no_content .et_pb_newsletter_form{-webkit-box-ordinal-group:3",
+      "0 50px 0 0}}@media (max-width:767px){.et_pb_toggle.et_pb_text_align_left-phone .et_pb_toggle_title,.et_pb_toggle.et_pb_text_align_left-phone h5.et_pb_toggle_title{cursor:pointer",
+      "0}#left-area ul.products{padding:0!important",
+      "4px}button,input,select,textarea{font-family:inherit}img{max-width:100%",
+      "0 0 23px 1em",
+      "0 auto}@media only screen and (max-width:765px){.et_pb_toggle{padding-bottom:0px!important",
+      "0 30px 20px 0}.wp-caption.alignright{margin:0 0 20px 30px}.wp-caption img{margin:0",
+      "0}#et-boc .area-outer-wrap[data-da-type=popup]{min-width:320px",
+      "0}.pagination{clear:both}#et_search_icon:hover,.et-social-icon a:hover,.et_password_protected_form .et_submit_button,.form-submit .et_pb_buttontton.alt.disabled,.nav-single a,.posted_in a{color:#2ea3f2}.et-search-form,blockquote{border-color:#2ea3f2}#main-content{background-color:#fff}.container{width:80%",
+      "0 0 23px",
+      "0 0 0 3%",
+      "16px 20px 16px 16px",
+      "8px auto 0",
+      "0 0 0 18px",
+      "0 50px 0 0}.et_pb_toggle_close .et_pb_toggle_title,.et_pb_toggle_close h5.et_pb_toggle_title{color:#666}.et_pb_toggle_open .et_pb_toggle_title,.et_pb_toggle_open h5.et_pb_toggle_title{color:#333}.et_pb_toggle_title:before{content:\"\\E050\"",
+      ".3em 2em .3em .7em}.et_pb_button:hover{background-color:hsla(0,0%,100%,.2)}.et_pb_bg_layout_light.et_pb_button:hover,.et_pb_bg_layout_light .et_pb_button:hover{background-color:rgba(0,0,0,.05)}.et_pb_button:after,.et_pb_button:before{font-size:32px",
+      "0!important}.et_overlay.et_pb_inline_icon:before,.et_pb_inline_icon:before{content:attr(data-icon)}.et_pb_more_button{color:inherit",
+      "-1px",
+      "0}.alignright{float:right}.alignleft{float:left}img.alignleft{display:inline",
+      "0 50px 0 0}.et_pb_accordion .et_pb_toggle_title:before{right:0",
+      "0}.et_pb_fullwidth_section>.et_pb_module:not(.et_pb_post_content):not(.et_pb_fullwidth_post_content) .et_pb_row{padding:0!important}.et_pb_inner_shadow{-webkit-box-shadow:inset 0 0 7px rgba(0,0,0,.07)",
+      "0}table{border-collapse:collapse",
+      "0"
+    ]
+  },
+  "meta": {
+    "description": "Sabine Kfouri & Bernard Laurent-Bellue, candidats au conseil de l’Ordre des avocats du barreau de Paris. Élections des 2 & 4 décembre 2025 ",
+    "title": "Sabine Kfouri & Bernard Laurent-Bellue, MCO Paris 2025"
+  }
+}
