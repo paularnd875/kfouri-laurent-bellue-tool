@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
     // Skip header row et traiter les données
     const avocats: AvocatCabinet[] = rows.slice(1)
-      .map((row, index) => {
+      .map((row, index): AvocatCabinet | null => {
         if (!row || row.length === 0) return null;
 
         const nomComplet = nomIndex >= 0 ? (row[nomIndex] || '') : '';

@@ -31,7 +31,7 @@ export default function LawyerCard({
   const getSupportTags = () => {
     if (!lawyer.raw_data) return [];
     
-    const supportTags = [];
+    const supportTags: { key: string; display: string; year: string }[] = [];
     Object.keys(lawyer.raw_data).forEach(key => {
       if (key.includes('SOUTIENS') && lawyer.raw_data[key] === '1') {
         // Nettoyer le nom de l'étiquette

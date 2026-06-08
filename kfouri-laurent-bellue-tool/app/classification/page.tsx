@@ -273,7 +273,7 @@ export default function ClassificationPage() {
   const getClassificationSources = (lawyer: LawyerClassification) => {
     if (!lawyer.raw_data) return [];
     
-    const sources = [];
+    const sources: string[] = [];
     Object.keys(lawyer.raw_data).forEach(key => {
       if (key.includes('C123') && lawyer.raw_data[key] && lawyer.raw_data[key] !== '0' && lawyer.raw_data[key] !== '') {
         sources.push(`${key.replace('C123\n(onglet doc\nagrégé)\n', '').replace('\n', ' ')}: ${lawyer.raw_data[key]}`);

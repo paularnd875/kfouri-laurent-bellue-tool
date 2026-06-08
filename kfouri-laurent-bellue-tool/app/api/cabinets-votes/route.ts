@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { globalCache } from '@/lib/cache';
 
 // Interface pour les données de vote des cabinets
 interface CabinetVoteData {
@@ -15,6 +16,28 @@ interface CabinetVoteData {
 
 export async function GET(request: NextRequest) {
   try {
+    // Récupérer les paramètres de la requête
+    const { searchParams } = new URL(request.url);
+    const minEffectif = parseInt(searchParams.get('minEffectif') || '10');
+    const maxEffectif = parseInt(searchParams.get('maxEffectif') || '30');
+    const maxTauxVote = parseInt(searchParams.get('maxTauxVote') || '100');
+    const sortBy = searchParams.get('sortBy') || 'moyenneVote';
+    const sortOrder = searchParams.get('sortOrder') || 'asc';
+    
+    // Créer clé de cache basée sur les paramètres
+    const cacheKey = `cabinets-votes-${minEffectif}-${maxEffectif}-${maxTauxVote}-${sortBy}-${sortOrder}`;
+    const cachedData = globalCache.get<any>(cacheKey);
+    
+    if (cachedData) {
+      console.log('✅ Cabinets votes data served from cache');
+      return NextResponse.json({
+        ...cachedData,
+        cached: true
+      });
+    }
+
+    console.log('🔄 Loading cabinets votes data from Google Sheets...');
+
     // Configuration Google Sheets - utiliser la clé complète
     let credentials;
     
@@ -73,14 +96,6 @@ export async function GET(request: NextRequest) {
         cabinet !== null && cabinet.structure !== ''
       );
 
-    // Paramètres de filtrage depuis l'URL
-    const { searchParams } = new URL(request.url);
-    const minEffectif = parseInt(searchParams.get('minEffectif') || '10');
-    const maxEffectif = parseInt(searchParams.get('maxEffectif') || '30');
-    const maxTauxVote = parseFloat(searchParams.get('maxTauxVote') || '100');
-    const sortBy = searchParams.get('sortBy') || 'moyenneVote';
-    const sortOrder = searchParams.get('sortOrder') || 'asc';
-
     // Filtrage des cabinets "ventres mous" (10-30 avocats)
     let filteredCabinets = cabinetData.filter(cabinet => 
       cabinet.effectif >= minEffectif && 
@@ -133,7 +148,8 @@ export async function GET(request: NextRequest) {
       }, {} as Record<string, number>)
     };
 
-    return NextResponse.json({
+    // Préparer la réponse
+    const responseData = {
       success: true,
       data: filteredCabinets,
       stats,
@@ -143,8 +159,15 @@ export async function GET(request: NextRequest) {
         maxTauxVote,
         sortBy,
         sortOrder
-      }
-    });
+      },
+      cached: false
+    };
+
+    // Mettre en cache pour 5 minutes
+    globalCache.set(cacheKey, responseData, 5 * 60 * 1000);
+    console.log(`✅ Cabinets votes data cached (${filteredCabinets.length} cabinets)`);
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('Erreur lors de la récupération des données de vote:', error);

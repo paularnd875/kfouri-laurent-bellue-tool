@@ -66,11 +66,12 @@ export async function GET(request: Request) {
     const classificationSources = new Set<string>();
     paginatedData.forEach(lawyer => {
       if (lawyer.raw_data) {
+        const rawData = lawyer.raw_data;
         // Chercher les colonnes de classification
-        Object.keys(lawyer.raw_data).forEach(key => {
+        Object.keys(rawData).forEach(key => {
           if (key.includes('C123') || key.includes('SOUTIENS') || key.includes('PROCHES')) {
-            if (lawyer.raw_data[key] && lawyer.raw_data[key] !== '0' && lawyer.raw_data[key] !== '') {
-              classificationSources.add(`${key}: ${lawyer.raw_data[key]}`);
+            if (rawData[key] && rawData[key] !== '0' && rawData[key] !== '') {
+              classificationSources.add(`${key}: ${rawData[key]}`);
             }
           }
         });
