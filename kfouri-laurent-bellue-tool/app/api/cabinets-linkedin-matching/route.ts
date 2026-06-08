@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { globalCache } from '@/lib/cache';
 
 // Interface pour les données de matching LinkedIn
 interface LinkedInMatch {
@@ -19,6 +20,41 @@ interface CabinetLinkedInMatching {
 
 export async function GET(request: NextRequest) {
   try {
+    // Vérifier le cache d'abord
+    const cacheKey = 'linkedin-matching-data-v4';
+    const cachedData = globalCache.get<CabinetLinkedInMatching[]>(cacheKey);
+    
+    if (cachedData) {
+      console.log('✅ LinkedIn matching data served from cache');
+      
+      // Filtrage par cabinet si demandé
+      const { searchParams } = new URL(request.url);
+      const cabinetFilter = searchParams.get('cabinet');
+      
+      if (cabinetFilter) {
+        const matching = cachedData.find(c => 
+          c.cabinetName.toLowerCase().includes(cabinetFilter.toLowerCase()) ||
+          cabinetFilter.toLowerCase().includes(c.cabinetName.toLowerCase())
+        );
+        
+        return NextResponse.json({
+          success: true,
+          data: matching || null,
+          cabinet: cabinetFilter,
+          cached: true
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: cachedData,
+        total: cachedData.length,
+        cached: true
+      });
+    }
+
+    console.log('🔄 Loading LinkedIn matching data from Google Sheets...');
+
     // Configuration Google Sheets - utiliser la clé complète
     let credentials;
     
@@ -57,8 +93,9 @@ export async function GET(request: NextRequest) {
     const sheetName = resourcesSheet?.properties?.title || 'Base principale';
     console.log('Nom d\'onglet utilisé:', sheetName);
     
-    // Récupération des données LinkedIn depuis l'onglet approprié avec le nom exact trouvé
-    const range = `${sheetName}!A:BX`; // Étendu pour récupérer toutes les colonnes
+    // Récupération des colonnes nécessaires pour LinkedIn
+    // Colonnes: I (nom), O (email), AJ (structure), BH (Sabine), BI (Bernard)
+    const range = `${sheetName}!A:BK`; // Inclure jusqu'à BK pour BH et BI
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -76,17 +113,23 @@ export async function GET(request: NextRequest) {
 
     // Skip header row et traiter les données LinkedIn
     const linkedinData: LinkedInMatch[] = rows.slice(1)
-      .map((row, index) => {
+      .map((row, index): LinkedInMatch | null => {
         if (!row || row.length === 0) return null;
 
-        const nomComplet = row[0] || ''; // Colonne I
-        const email = row[6] || '';       // Colonne O  
-        const structure = row[26] || '';  // Colonne AI
+        const nomComplet = row[8] || '';  // Colonne I (index 8)
+        const email = row[14] || '';      // Colonne O (index 14)  
+        const structure = row[35] || '';  // Colonne AJ (index 35)
 
-        // Rechercher les colonnes LinkedIn (à adapter selon l'onglet exact)
-        // Ces colonnes doivent être identifiées dans l'onglet Google Sheets
-        const linkedin_bernard = false; // À adapter selon les colonnes réelles
-        const linkedin_sabine = false;  // À adapter selon les colonnes réelles
+        // Colonnes LinkedIn selon les spécifications :
+        // BH = Sabine (index 59) - 1 si relation, 0 sinon
+        // BI = Bernard (index 60) - 1 si relation, 0 sinon
+        const linkedin_sabine = row[59] === '1';  // Colonne BH
+        const linkedin_bernard = row[60] === '1'; // Colonne BI
+        
+        // Debug pour les 5 premiers
+        if (index < 5) {
+          console.log(`🔍 Debug LinkedIn ligne ${index + 1}: BH(59)="${row[59]}" BI(60)="${row[60]}" → Sabine: ${linkedin_sabine}, Bernard: ${linkedin_bernard}`);
+        }
 
         return {
           nomComplet,
@@ -96,11 +139,18 @@ export async function GET(request: NextRequest) {
           linkedin_sabine
         };
       })
-      .filter((contact): contact is LinkedInMatch => 
-        contact !== null && 
-        contact.nomComplet !== '' && 
-        contact.cabinet !== ''
-      );
+      .filter((contact): contact is LinkedInMatch => {
+        if (contact === null || contact.nomComplet === '' || contact.cabinet === '') {
+          return false;
+        }
+        
+        // Debug: compter les connexions LinkedIn détectées
+        if (contact.linkedin_bernard || contact.linkedin_sabine) {
+          console.log(`✅ LinkedIn détecté: ${contact.nomComplet} (${contact.cabinet}) - Bernard: ${contact.linkedin_bernard}, Sabine: ${contact.linkedin_sabine}`);
+        }
+        
+        return true;
+      });
 
     // Grouper par cabinet
     const cabinetMatching: Record<string, CabinetLinkedInMatching> = {};
@@ -126,13 +176,21 @@ export async function GET(request: NextRequest) {
       cabinetMatching[contact.cabinet].totalContacts++;
     });
 
+    // Convertir en tableau et mettre en cache
+    const cabinetMatchingArray = Object.values(cabinetMatching);
+    
+    // Mettre en cache pour 10 minutes (600,000ms)
+    globalCache.set(cacheKey, cabinetMatchingArray, 10 * 60 * 1000);
+    
+    console.log(`✅ LinkedIn matching data cached (${cabinetMatchingArray.length} cabinets)`);
+
     // Paramètres optionnels pour filtrer par cabinet spécifique
     const { searchParams } = new URL(request.url);
     const cabinetFilter = searchParams.get('cabinet');
     
     if (cabinetFilter) {
       // Retourner seulement le matching pour un cabinet spécifique
-      const matching = Object.values(cabinetMatching).find(c => 
+      const matching = cabinetMatchingArray.find(c => 
         c.cabinetName.toLowerCase().includes(cabinetFilter.toLowerCase()) ||
         cabinetFilter.toLowerCase().includes(c.cabinetName.toLowerCase())
       );
@@ -140,15 +198,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: matching || null,
-        cabinet: cabinetFilter
+        cabinet: cabinetFilter,
+        cached: false
       });
     }
 
     // Retourner tous les matchings
     return NextResponse.json({
       success: true,
-      data: Object.values(cabinetMatching),
-      total: Object.keys(cabinetMatching).length
+      data: cabinetMatchingArray,
+      total: cabinetMatchingArray.length,
+      cached: false
     });
 
   } catch (error) {
