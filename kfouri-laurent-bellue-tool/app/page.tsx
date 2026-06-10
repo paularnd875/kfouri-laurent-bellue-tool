@@ -46,6 +46,7 @@ interface ApiResponse {
   };
   columnMapping?: any;
   cached?: boolean;
+  error?: string;
 }
 
 // Icône LinkedIn personnalisée
@@ -319,19 +320,21 @@ export default function HomePage() {
               <div className="flex items-center space-x-3">
                 {/* Enveloppe 1er Tour */}
                 <div className="flex flex-col items-center">
-                  <Mail 
-                    className={`w-5 h-5 ${avocat.vote1erTour ? 'text-green-600' : 'text-red-500'}`}
-                    title={`Vote 1er Tour: ${avocat.vote1erTour ? 'Voté' : 'N\'a pas voté'}`}
-                  />
+                  <div title={`Vote 1er Tour: ${avocat.vote1erTour ? 'Voté' : 'N\'a pas voté'}`}>
+                    <Mail 
+                      className={`w-5 h-5 ${avocat.vote1erTour ? 'text-green-600' : 'text-red-500'}`}
+                    />
+                  </div>
                   <span className="text-xs text-gray-500 mt-1">1T</span>
                 </div>
                 
                 {/* Enveloppe 2ème Tour */}
                 <div className="flex flex-col items-center">
-                  <Mail 
-                    className={`w-5 h-5 ${avocat.vote2emeTour ? 'text-green-600' : 'text-red-500'}`}
-                    title={`Vote 2ème Tour: ${avocat.vote2emeTour ? 'Voté' : 'N\'a pas voté'}`}
-                  />
+                  <div title={`Vote 2ème Tour: ${avocat.vote2emeTour ? 'Voté' : 'N\'a pas voté'}`}>
+                    <Mail 
+                      className={`w-5 h-5 ${avocat.vote2emeTour ? 'text-green-600' : 'text-red-500'}`}
+                    />
+                  </div>
                   <span className="text-xs text-gray-500 mt-1">2T</span>
                 </div>
               </div>
