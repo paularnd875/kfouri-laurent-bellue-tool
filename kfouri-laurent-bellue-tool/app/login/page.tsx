@@ -76,7 +76,7 @@ export default function LoginPage() {
           <div className="klb-card-body pt-0">
             <div className="text-center">
               <p className="klb-text-small klb-text-muted">
-                Élections du Conseil de l'Ordre • Décembre 2025
+                Élections du Conseil de l'Ordre • Décembre 2026
               </p>
             </div>
           </div>

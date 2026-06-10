@@ -141,7 +141,7 @@ export default function Home() {
           </h1>
           <p className="klb-text-body klb-text-muted max-w-2xl">
             Outil de gestion et d'analyse des relations pour les élections du Conseil de l'Ordre 
-            des avocats du barreau de Paris - Décembre 2025
+            des avocats du barreau de Paris - Décembre 2026
           </p>
           {loading && (
             <div className="mt-4 klb-text-body" style={{ color: 'var(--klb-primary)' }}>
