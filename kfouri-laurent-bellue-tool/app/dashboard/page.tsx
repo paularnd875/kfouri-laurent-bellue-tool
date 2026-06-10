@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 
 interface DashboardStats {
   totalLawyers: number;
@@ -23,6 +24,7 @@ interface DashboardStats {
 
 export default function Home() {
   const pathname = usePathname();
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     totalLawyers: 0,
     totalFirms: 0,
@@ -44,6 +46,13 @@ export default function Home() {
   useEffect(() => {
     fetchStats();
   }, []);
+
+  const handleLogout = () => {
+    // Supprimer le cookie d'authentification
+    document.cookie = 'klb_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    // Rediriger vers la page de login
+    router.push('/login');
+  };
 
   const fetchStats = async () => {
     try {
@@ -110,6 +119,14 @@ export default function Home() {
               >
                 Administration
               </Link>
+              <button
+                onClick={handleLogout}
+                className="klb-nav-item text-red-400 hover:text-red-300 flex items-center space-x-2"
+                title="Se déconnecter"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Déconnexion</span>
+              </button>
             </nav>
           </div>
         </div>

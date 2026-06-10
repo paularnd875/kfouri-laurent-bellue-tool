@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 
 interface ClassificationChange {
   prenomnom: string;
@@ -27,30 +28,22 @@ interface AdminStats {
 
 export default function AdminPage() {
   const pathname = usePathname();
-  const [password, setPassword] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [changes, setChanges] = useState<ClassificationChange[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ADMIN_PASSWORD = 'KLB2025!'; // En production, utiliser des variables d'environnement
-
   useEffect(() => {
-    if (isAuthenticated) {
-      loadStats();
-      loadChanges();
-    }
-  }, [isAuthenticated]);
+    loadStats();
+    loadChanges();
+  }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      setError(null);
-    } else {
-      setError('Mot de passe incorrect');
-    }
+  const handleLogout = () => {
+    // Supprimer le cookie d'authentification
+    document.cookie = 'klb_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    // Rediriger vers la page de login
+    router.push('/login');
   };
 
   const loadStats = async () => {
@@ -79,11 +72,16 @@ export default function AdminPage() {
 
   const loadChanges = async () => {
     try {
-      const response = await fetch('/api/admin/classifications');
+      const response = await fetch('/api/classifications');
       const result = await response.json();
       
       if (result.success) {
-        setChanges(result.changes || []);
+        const formattedChanges = result.classifications.map((classification: any) => ({
+          prenomnom: classification.nom,
+          classification: classification.nouvelleClassification,
+          date: classification.dateModification
+        }));
+        setChanges(formattedChanges || []);
       }
     } catch (err) {
       console.error('Erreur lors du chargement des modifications:', err);
@@ -92,16 +90,28 @@ export default function AdminPage() {
 
   const exportCSV = async () => {
     try {
-      const response = await fetch('/api/admin/classifications?export=csv');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `classifications_modifications_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const response = await fetch('/api/classifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'export'
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        const blob = new Blob([result.csvData], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = result.filename || `classifications_modifications_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
     } catch (err) {
       console.error('Erreur lors de l\'export CSV:', err);
     }
@@ -113,13 +123,13 @@ export default function AdminPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/classifications', {
+      const response = await fetch('/api/classifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'clear_all'
+          action: 'vider'
         })
       });
 
@@ -132,48 +142,6 @@ export default function AdminPage() {
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="klb-card w-full max-w-md">
-          <div className="klb-card-header text-center">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">
-              🔐 Administration
-            </h1>
-            <p className="klb-text-muted">
-              Interface d'administration Kfouri & Laurent-Bellue
-            </p>
-          </div>
-          
-          <form onSubmit={handleLogin} className="klb-card-body">
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mot de passe
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="klb-input"
-                placeholder="Entrez le mot de passe admin"
-                required
-              />
-            </div>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-            
-            <button type="submit" className="klb-btn-primary w-full">
-              Se connecter
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -212,10 +180,12 @@ export default function AdminPage() {
                 Administration
               </Link>
               <button
-                onClick={() => setIsAuthenticated(false)}
-                className="klb-nav-item text-red-400 hover:text-red-300"
+                onClick={handleLogout}
+                className="klb-nav-item text-red-400 hover:text-red-300 flex items-center space-x-2"
+                title="Se déconnecter"
               >
-                Déconnexion
+                <LogOut className="w-4 h-4" />
+                <span>Déconnexion</span>
               </button>
             </nav>
           </div>
@@ -342,7 +312,7 @@ export default function AdminPage() {
 
 
               <button 
-                onClick={() => window.open('/api/admin/classifications?export=csv')}
+                onClick={exportCSV}
                 className="klb-card hover:scale-105 transition-transform w-full text-left"
               >
                 <div className="klb-card-body text-center">

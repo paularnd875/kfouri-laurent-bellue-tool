@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Mail, Phone, ExternalLink, ChevronDown, ChevronUp, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Mail, Phone, ExternalLink, ChevronDown, ChevronUp, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
 
 // Interface pour un avocat avec toutes ses données
 interface Avocat {
@@ -59,6 +59,7 @@ const LinkedInIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 export default function HomePage() {
   // États principaux
   const pathname = usePathname();
+  const router = useRouter();
   const [searchMode, setSearchMode] = useState<'cabinets' | 'avocats'>('cabinets');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -91,6 +92,9 @@ export default function HomePage() {
   // États UI
   const [expandedCabinets, setExpandedCabinets] = useState<Set<string>>(new Set());
   const [availableEtiquettes, setAvailableEtiquettes] = useState<string[]>([]);
+  
+  // États pour la classification
+  const [classificationsEnAttente, setClassificationsEnAttente] = useState<any[]>([]);
 
   // Charger les données initiales
   useEffect(() => {
@@ -210,6 +214,65 @@ export default function HomePage() {
 
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleLogout = () => {
+    // Supprimer le cookie d'authentification
+    document.cookie = 'klb_authenticated=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    // Rediriger vers la page de login
+    router.push('/login');
+  };
+
+  // Fonction pour gérer les modifications de classification
+  const handleClassificationChange = async (avocat: Avocat, nouvelleClassification: "C1" | "C2" | "C3" | "Blacklist" | "") => {
+    try {
+      const classificationData = {
+        action: 'ajouter',
+        nom: avocat.nom,
+        email: avocat.email,
+        structure: avocat.structure,
+        ancienneClassification: avocat.classification,
+        nouvelleClassification: nouvelleClassification
+      };
+
+      const response = await fetch('/api/classifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(classificationData)
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Mettre à jour la classification localement
+        const newClassification = nouvelleClassification === '' ? undefined : nouvelleClassification as "C1" | "C2" | "C3" | "Blacklist";
+        
+        if (searchMode === 'avocats') {
+          setAvocatsData(prev => prev.map(a => 
+            a.email === avocat.email ? { ...a, classification: newClassification } : a
+          ));
+        } else {
+          setCabinetsData(prev => prev.map(cabinet => ({
+            ...cabinet,
+            avocats: cabinet.avocats.map(a =>
+              a.email === avocat.email ? { ...a, classification: newClassification } : a
+            )
+          })));
+        }
+        
+        // Ajouter à la liste des modifications en attente
+        setClassificationsEnAttente(prev => [...prev, result.classification]);
+        
+        // Notification simple
+        alert(`Classification modifiée: ${avocat.nom} -> ${nouvelleClassification}`);
+      } else {
+        alert('Erreur lors de la modification: ' + result.error);
+      }
+    } catch (error) {
+      alert('Erreur de connexion: ' + error);
+    }
   };
 
   // Fonction pour générer les numéros de page à afficher
@@ -383,14 +446,30 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Ligne des étiquettes en dessous */}
-          <div className="flex flex-wrap gap-2 ml-22">
-            {/* Classification */}
-            {avocat.classification && (
-              <span className={`klb-badge-small ${getClassificationColor(avocat.classification)}`}>
-                {avocat.classification}
-              </span>
-            )}
+          {/* Ligne des étiquettes et classification en dessous */}
+          <div className="flex flex-wrap items-center gap-2 ml-22">
+            {/* Dropdown de classification */}
+            <div className="flex items-center gap-2">
+              <select 
+                value={avocat.classification || ''}
+                onChange={(e) => handleClassificationChange(avocat, e.target.value as "C1" | "C2" | "C3" | "Blacklist" | "")}
+                className="text-xs px-2 py-1 border border-gray-300 rounded bg-white text-gray-700 cursor-pointer hover:border-gray-400 focus:border-blue-500 focus:outline-none"
+                title="Modifier la classification"
+              >
+                <option value="">Non classé</option>
+                <option value="C1">C1 - Soutien Fort</option>
+                <option value="C2">C2 - Soutien Modéré</option>
+                <option value="C3">C3 - Neutre</option>
+                <option value="Blacklist">Blacklist</option>
+              </select>
+              
+              {/* Affichage du badge classification actuel */}
+              {avocat.classification && (
+                <span className={`klb-badge-small ${getClassificationColor(avocat.classification)}`}>
+                  {avocat.classification}
+                </span>
+              )}
+            </div>
             
             {/* Étiquettes */}
             {Object.entries(avocat.etiquettes).map(([etiquette, active]) => 
@@ -445,6 +524,14 @@ export default function HomePage() {
               >
                 Administration
               </Link>
+              <button
+                onClick={handleLogout}
+                className="klb-nav-item text-red-400 hover:text-red-300 flex items-center space-x-2"
+                title="Se déconnecter"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Déconnexion</span>
+              </button>
             </nav>
           </div>
         </div>
