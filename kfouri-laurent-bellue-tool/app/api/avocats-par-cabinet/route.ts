@@ -52,6 +52,13 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const cabinetFilter = searchParams.get('cabinet') || '';
+    const minEffectif = parseInt(searchParams.get('minEffectif') || '1');
+    const maxEffectif = parseInt(searchParams.get('maxEffectif') || '999');
+    const classification = searchParams.get('classification');
+    const etiquette = searchParams.get('etiquette');
+    const sortBy = searchParams.get('sortBy') || 'effectif';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const ventresMous = searchParams.get('ventresMous') === 'true';
 
     // Configuration Google Sheets
     let credentials;
@@ -200,10 +207,82 @@ export async function GET(request: NextRequest) {
     // Convertir en array et filtrer si nécessaire
     let cabinets = Array.from(cabinetDataMap.values());
 
+    // Filtre par nom de cabinet
     if (cabinetFilter) {
       cabinets = cabinets.filter(c => 
         c.nom.toLowerCase().includes(cabinetFilter.toLowerCase())
       );
+    }
+
+    // Filtre par effectif
+    cabinets = cabinets.filter(c => 
+      c.effectif >= minEffectif && c.effectif <= maxEffectif
+    );
+
+    // Filtre "ventres mous" (10-30 avocats)
+    if (ventresMous) {
+      cabinets = cabinets.filter(c => 
+        c.effectif >= 10 && c.effectif <= 30
+      );
+    }
+
+    // Filtre par classification ou étiquette
+    if (classification || etiquette) {
+      cabinets = cabinets.filter(cabinet => {
+        return cabinet.avocats.some(avocat => {
+          if (classification && avocat.classification === classification) {
+            return true;
+          }
+          if (etiquette && avocat.etiquettes[etiquette] === true) {
+            return true;
+          }
+          return false;
+        });
+      });
+    }
+
+    // Tri
+    cabinets.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'nom':
+          aValue = a.nom;
+          bValue = b.nom;
+          if (sortOrder === 'desc') {
+            return bValue.localeCompare(aValue, 'fr', { sensitivity: 'base' });
+          }
+          return aValue.localeCompare(bValue, 'fr', { sensitivity: 'base' });
+        case 'tauxVote1T':
+          aValue = a.tauxVote1T;
+          bValue = b.tauxVote1T;
+          break;
+        case 'tauxVote2T':
+          aValue = a.tauxVote2T;
+          bValue = b.tauxVote2T;
+          break;
+        case 'moyenneVote':
+          aValue = a.moyenneVote;
+          bValue = b.moyenneVote;
+          break;
+        case 'effectif':
+        default:
+          aValue = a.effectif;
+          bValue = b.effectif;
+          break;
+      }
+
+      if (sortOrder === 'desc') {
+        return bValue - aValue;
+      }
+      return aValue - bValue;
+    });
+
+    // Placer "Individuels" en tête si présent
+    const individuelsIndex = cabinets.findIndex(c => c.nom === 'Individuels');
+    if (individuelsIndex > 0) {
+      const individuels = cabinets.splice(individuelsIndex, 1)[0];
+      cabinets.unshift(individuels);
     }
 
     // Pagination

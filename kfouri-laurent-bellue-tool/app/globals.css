@@ -298,6 +298,13 @@ h6 {
   background-color: white;
 }
 
+.klb-badge-outline.header-badge {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--klb-gray-200);
+  background-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+}
+
 /* Forms - Éléments de formulaire professionnels */
 .klb-input {
   width: 100%;
@@ -332,69 +339,119 @@ h6 {
   letter-spacing: 0.025em;
 }
 
-/* Header - Navigation professionnelle sticky comme le site de référence */
+/* Header - Navigation professionnelle premium */
 .klb-header {
-  background: var(--klb-white);
-  border-bottom: 1px solid var(--klb-gray-200);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, var(--klb-gray-900) 0%, var(--klb-gray-800) 100%);
+  border-bottom: 1px solid var(--klb-gray-700);
+  box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.15), 0 2px 4px 0 rgba(0, 0, 0, 0.1);
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  height: 72px;
+  display: flex;
+  align-items: center;
 }
 
-/* Compensation pour le header fixe */
+/* Compensation pour le header fixe - SOLUTION SIMPLE */
+body {
+  margin: 0;
+  padding: 0;
+  padding-top: 72px; /* Exactement la hauteur du header */
+}
+
 .klb-page-content {
-  padding-top: 80px;
+  padding-top: 6rem; /* Espacement très généreux sous le header - 96px */
+  margin-top: 0;
+}
+
+/* ========== SYSTÈME D'ESPACEMENT STANDARDISÉ ==========
+   
+   Usage pour toutes les pages futures :
+   
+   1. .klb-page-title : Utilisez sur tous les titres principaux de page (H1/H2)
+      → Garantit 64px d'espacement après le titre
+   
+   2. .klb-section-spacing : Utilisez entre les grandes sections
+      → Garantit 48px d'espacement entre blocs principaux
+   
+   3. .klb-content-spacing : Utilisez entre éléments de contenu
+      → Garantit 32px d'espacement standard
+      
+   Exemple d'utilisation :
+   <h1 class="klb-section-title klb-page-title">Mon Titre</h1>
+   <div class="klb-card klb-section-spacing">Section 1</div>
+   <div class="klb-card klb-content-spacing">Section 2</div>
+   
+   ======================================================= */
+
+.klb-page-title {
+  margin-bottom: 4rem !important; /* 64px - espacement généreux après titre principal */
+}
+
+.klb-section-spacing {
+  margin-bottom: 3rem !important; /* 48px - espacement entre sections */
+}
+
+.klb-content-spacing {
+  margin-bottom: 2rem !important; /* 32px - espacement standard entre éléments */
 }
 
 /* Logo/Brand style professionnel */
 .klb-brand {
   font-family: 'Acumin Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 1.5rem;
+  font-size: 1.625rem;
   font-weight: 700;
-  color: var(--klb-primary);
+  color: var(--klb-white);
   text-decoration: none;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
 }
 
 .klb-brand:hover {
-  color: var(--klb-primary-dark);
+  color: var(--klb-primary-light);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Navigation - Éléments de navigation selon le site de référence */
 .klb-nav-item {
-  padding: 0.75rem 1rem;
-  color: var(--klb-text-primary);
-  border-radius: 0.375rem;
+  padding: 0.75rem 1.25rem;
+  color: var(--klb-gray-300);
+  border-radius: 0.5rem;
   transition: all 0.25s ease-in-out;
   text-decoration: none;
   font-weight: 500;
-  font-size: 16px;
+  font-size: 0.95rem;
   position: relative;
+  border: 1px solid transparent;
 }
 
 .klb-nav-item:hover {
-  color: var(--klb-primary-light);
-  background-color: rgba(0, 27, 91, 0.05);
+  color: var(--klb-white);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .klb-nav-item-active {
-  color: var(--klb-primary);
-  background: rgba(0, 27, 91, 0.1);
+  color: var(--klb-white);
+  background: var(--klb-primary);
+  border-color: var(--klb-primary-light);
   font-weight: 600;
+  box-shadow: 0 2px 4px rgba(132, 79, 193, 0.3);
 }
 
 /* Utilities */
 .klb-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 2rem;
+  width: 100%;
 }
 
 @media (min-width: 1024px) {
@@ -767,17 +824,18 @@ h6 {
   font-variant-numeric: tabular-nums;
 }
 
-/* Titres de section optimisés */
+/* Titres de section optimisés - style Kfouri Laurent-Bellue */
 .klb-section-title {
-  font-size: 1.25rem;
+  font-size: 1.375rem; /* 22px - taille professionnelle modérée */
   font-weight: 600;
   color: var(--klb-text-primary);
   line-height: 1.3;
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .klb-subsection-title {
-  font-size: 1rem;
+  font-size: 1.125rem; /* 18px - taille modérée pour les noms de cabinets */
   font-weight: 600;
   color: var(--klb-text-primary);
   line-height: 1.4;
@@ -830,6 +888,190 @@ h6 {
 
 .klb-expand-icon.expanded {
   transform: rotate(180deg);
+}
+
+/* Badge small - pour les étiquettes des avocats */
+.klb-badge-small {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
+}
+
+/* Interface cabinets simple */
+.klb-cabinet-header {
+  cursor: pointer;
+}
+
+.klb-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--klb-gray-200);
+  border-radius: 0.5rem;
+  transition: all 0.2s ease-in-out;
+  color: var(--klb-gray-500);
+}
+
+.klb-expand-btn:hover {
+  border-color: var(--klb-primary);
+  color: var(--klb-primary);
+  background-color: var(--klb-gray-25);
+}
+
+/* Stats de vote avec hiérarchie visuelle */
+.klb-vote-stats {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.klb-vote-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--klb-gray-200);
+  background: var(--klb-gray-25);
+  min-width: 120px;
+}
+
+.klb-vote-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--klb-text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.klb-vote-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--klb-text-primary);
+}
+
+.klb-vote-percentage {
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: 0.25rem;
+}
+
+/* Couleurs pour taux de participation */
+.klb-vote-high { 
+  border-color: var(--klb-c1);
+  background-color: color-mix(in srgb, var(--klb-c1) 10%, transparent);
+}
+
+.klb-vote-medium { 
+  border-color: var(--klb-c3);
+  background-color: color-mix(in srgb, var(--klb-c3) 10%, transparent);
+}
+
+.klb-vote-low { 
+  border-color: var(--klb-danger);
+  background-color: color-mix(in srgb, var(--klb-danger) 10%, transparent);
+}
+
+/* Pagination moderne */
+.klb-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 2rem 0;
+}
+
+.klb-pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--klb-gray-200);
+  border-radius: 0.5rem;
+  background: white;
+  color: var(--klb-text-primary);
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.klb-pagination-btn:hover:not(:disabled) {
+  border-color: var(--klb-primary);
+  color: var(--klb-primary);
+  background-color: var(--klb-gray-25);
+}
+
+.klb-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--klb-gray-400);
+}
+
+.klb-pagination-btn.active {
+  background-color: var(--klb-primary);
+  border-color: var(--klb-primary);
+  color: white;
+}
+
+.klb-pagination-btn.active:hover {
+  background-color: var(--klb-primary-hover);
+  color: white;
+}
+
+.klb-pagination-ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  color: var(--klb-gray-400);
+  font-weight: 500;
+}
+
+/* Boutons d'icône compacts */
+.klb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--klb-gray-300);
+  background: white;
+  color: var(--klb-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.klb-icon-btn:hover {
+  border-color: var(--klb-primary);
+  color: var(--klb-primary);
+  background: var(--klb-gray-25);
+}
+
+/* Texte de structure pour les avocats */
+.klb-structure-text {
+  font-size: 13px;
+  color: var(--klb-text-secondary);
+  font-weight: 400;
+}
+
+/* Métriques dans les en-têtes de cabinet */
+.klb-vote-metric {
+  font-size: 13px;
+  color: var(--klb-text-secondary);
+  font-weight: 400;
 }
 
 /* Smooth transitions */

@@ -2,66 +2,167 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Mail, Phone, ExternalLink, ChevronDown, ChevronUp, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
-interface DashboardStats {
-  totalLawyers: number;
-  totalFirms: number;
-  bernardLinkedIn: number;
-  sabineLinkedIn: number;
-  linkedInCoverage: number;
-  classifications: {
-    c1: number;
-    c2: number;
-    c3: number;
-    blacklist: number;
-  };
-  classificationRate: number;
-  supportPercentage: number;
-  lastUpdated?: string;
+// Interface pour un avocat avec toutes ses données
+interface Avocat {
+  nom: string;
+  email: string;
+  telFixe?: string;
+  telPortable?: string;
+  linkedin?: string;
+  photo?: string;
+  structure: string;
+  classification?: 'C1' | 'C2' | 'C3' | 'Blacklist';
+  vote1erTour: boolean;
+  vote2emeTour: boolean;
+  etiquettes: { [key: string]: boolean };
 }
 
-export default function Home() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalLawyers: 0,
-    totalFirms: 0,
-    bernardLinkedIn: 0,
-    sabineLinkedIn: 0,
-    linkedInCoverage: 0,
-    classifications: {
-      c1: 0,
-      c2: 0,
-      c3: 0,
-      blacklist: 0
-    },
-    classificationRate: 0,
-    supportPercentage: 0
-  });
+// Interface pour un cabinet avec ses avocats et statistiques
+interface CabinetData {
+  nom: string;
+  effectif: number;
+  votants1T: number;
+  tauxVote1T: number;
+  votants2T: number;
+  tauxVote2T: number;
+  moyenneVote: number;
+  avocats: Avocat[];
+}
+
+// Interface pour les données de l'API
+interface ApiResponse {
+  success: boolean;
+  data: CabinetData[] | Avocat[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+  columnMapping?: any;
+  cached?: boolean;
+}
+
+// Icône LinkedIn personnalisée
+const LinkedInIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <div className={`${className} flex items-center justify-center font-bold text-gray-600`} style={{ fontSize: '14px' }}>
+    in
+  </div>
+);
+
+export default function HomePage() {
+  // États principaux
+  const pathname = usePathname();
+  const [searchMode, setSearchMode] = useState<'cabinets' | 'avocats'>('cabinets');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Données
+  const [cabinetsData, setCabinetsData] = useState<CabinetData[]>([]);
+  const [avocatsData, setAvocatsData] = useState<Avocat[]>([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  });
+
+  // Filtres
+  const [filters, setFilters] = useState({
+    minEffectif: 1,
+    maxEffectif: 999,
+    ventresMous: false,
+    classification: '',
+    etiquette: '',
+    sortBy: searchMode === 'cabinets' ? 'effectif' : 'nom',
+    sortOrder: searchMode === 'cabinets' ? 'desc' : 'asc'
+  });
+
+  // États UI
+  const [expandedCabinets, setExpandedCabinets] = useState<Set<string>>(new Set());
+  const [availableEtiquettes, setAvailableEtiquettes] = useState<string[]>([]);
+
+  // Charger les données initiales
   useEffect(() => {
-    fetchStats();
+    loadData();
+    loadAvailableEtiquettes();
   }, []);
 
-  const fetchStats = async () => {
+  // Recharger quand les filtres ou le mode change
+  useEffect(() => {
+    loadData();
+  }, [searchMode, filters, searchQuery, pagination.page]);
+
+  const loadAvailableEtiquettes = async () => {
+    try {
+      const response = await fetch('/api/avocats-par-cabinet?limit=1');
+      const result: ApiResponse = await response.json();
+      if (result.success && result.columnMapping) {
+        setAvailableEtiquettes(result.columnMapping.etiquettesNames || []);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des étiquettes:', error);
+    }
+  };
+
+  const loadData = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin-stats');
-      const result = await response.json();
+      setError(null);
+
+      let url = '';
+      let params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: pagination.limit.toString(),
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+      });
+
+      if (searchQuery.trim()) {
+        params.append('query', searchQuery.trim());
+      }
+
+      if (searchMode === 'cabinets') {
+        url = '/api/avocats-par-cabinet';
+        if (searchQuery.trim()) {
+          params.append('cabinet', searchQuery.trim());
+        }
+        params.append('minEffectif', filters.minEffectif.toString());
+        params.append('maxEffectif', filters.maxEffectif.toString());
+        params.append('ventresMous', filters.ventresMous.toString());
+      } else {
+        url = '/api/search-avocats';
+      }
       
+
+      if (filters.classification) {
+        params.append('classification', filters.classification);
+      }
+      if (filters.etiquette) {
+        params.append('etiquette', filters.etiquette);
+      }
+
+      const response = await fetch(`${url}?${params}`);
+      const result: ApiResponse = await response.json();
+
       if (result.success) {
-        setStats({
-          totalLawyers: result.stats.totalLawyers,
-          totalFirms: result.stats.totalFirms,
-          bernardLinkedIn: result.stats.bernardLinkedIn,
-          sabineLinkedIn: result.stats.sabineLinkedIn,
-          linkedInCoverage: result.stats.linkedInCoverage,
-          classifications: result.stats.classifications,
-          classificationRate: result.stats.classificationRate,
-          supportPercentage: result.stats.supportPercentage,
-          lastUpdated: result.metadata.lastUpdated
-        });
-        setError(null);
+        if (searchMode === 'cabinets') {
+          setCabinetsData(result.data as CabinetData[]);
+          setAvocatsData([]);
+        } else {
+          setAvocatsData(result.data as Avocat[]);
+          setCabinetsData([]);
+        }
+        setPagination(result.pagination);
       } else {
         setError(result.error || 'Erreur lors du chargement des données');
       }
@@ -72,31 +173,273 @@ export default function Home() {
     }
   };
 
+  const toggleCabinet = (cabinetNom: string) => {
+    const newExpanded = new Set(expandedCabinets);
+    if (newExpanded.has(cabinetNom)) {
+      newExpanded.delete(cabinetNom);
+    } else {
+      newExpanded.add(cabinetNom);
+    }
+    setExpandedCabinets(newExpanded);
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      minEffectif: 1,
+      maxEffectif: 999,
+      ventresMous: false,
+      classification: '',
+      etiquette: '',
+      sortBy: searchMode === 'cabinets' ? 'effectif' : 'nom',
+      sortOrder: searchMode === 'cabinets' ? 'desc' : 'asc'
+    });
+    setSearchQuery('');
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const handleSearchModeChange = (mode: 'cabinets' | 'avocats') => {
+    setSearchMode(mode);
+    setFilters(prev => ({
+      ...prev,
+      sortBy: mode === 'cabinets' ? 'effectif' : 'nom',
+      sortOrder: mode === 'cabinets' ? 'desc' : 'asc'
+    }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  // Fonction pour générer les numéros de page à afficher
+  const getPageNumbers = () => {
+    const { page, totalPages } = pagination;
+    const delta = 2; // Nombre de pages à afficher de chaque côté de la page actuelle
+    const range = [];
+    const rangeWithDots = [];
+
+    // Toujours inclure la première page
+    range.push(1);
+    
+    // Ajouter les pages autour de la page actuelle
+    for (let i = Math.max(2, page - delta); i <= Math.min(totalPages - 1, page + delta); i++) {
+      range.push(i);
+    }
+    
+    // Toujours inclure la dernière page (si > 1)
+    if (totalPages > 1) {
+      range.push(totalPages);
+    }
+
+    // Ajouter les "..." si nécessaire
+    let prev = 0;
+    for (const current of range) {
+      if (current - prev > 1) {
+        rangeWithDots.push('...');
+      }
+      rangeWithDots.push(current);
+      prev = current;
+    }
+
+    return rangeWithDots;
+  };
+
+  // Fonctions utilitaires
+  const getInitials = (nomComplet: string) => {
+    const parts = nomComplet.trim().split(' ').filter(part => part.length > 0);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    const prenom = parts[0].charAt(0).toUpperCase();
+    const nom = parts[parts.length - 1].charAt(0).toUpperCase();
+    return prenom + nom;
+  };
+
+  const getClassificationColor = (classification: string) => {
+    switch (classification) {
+      case 'C1': return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+      case 'C2': return 'bg-blue-100 text-blue-700 border-blue-300';
+      case 'C3': return 'bg-amber-100 text-amber-700 border-amber-300';
+      case 'Blacklist': return 'bg-red-100 text-red-700 border-red-300';
+      default: return 'bg-gray-100 text-gray-700 border-gray-300';
+    }
+  };
+
+  const getEtiquetteColor = (etiquetteName: string) => {
+    const name = etiquetteName.toUpperCase();
+    if (name.includes('LINKEDIN')) {
+      return 'bg-slate-800 text-white border-slate-600';
+    } else if (name.includes('SOUTIEN') || name.includes('SUPPORT') || name.includes('2024') || name.includes('2022')) {
+      return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+    } else if (name.includes('OUTLOOK') || name.includes('TÉLÉPHONE') || name.includes('CONTACT')) {
+      return 'bg-green-100 text-green-700 border-green-300';
+    } else if (name.includes('DJCE') || name.includes('M2') || name.includes('SCIENCES') || name.includes('PARIS')) {
+      return 'bg-orange-100 text-orange-700 border-orange-300';
+    } else if (name.includes('CLIQUEUR') || name.includes('DATA')) {
+      return 'bg-cyan-100 text-cyan-700 border-cyan-300';
+    }
+    return 'bg-gray-100 text-gray-700 border-gray-300';
+  };
+
+  const renderAvocatCard = (avocat: Avocat, showStructure = false) => (
+    <div key={`${avocat.nom}-${avocat.email}`} className="klb-card mb-4">
+      <div className="klb-card-body">
+        <div className="w-full">
+          {/* Ligne principale avec avatar et infos */}
+          <div className="flex items-start justify-between w-full mb-4">
+            {/* Avatar */}
+            <div className="flex-shrink-0 mr-6">
+              {avocat.photo ? (
+                <img 
+                  src={avocat.photo} 
+                  alt={avocat.nom}
+                  className="w-16 h-16 rounded-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.nextElementSibling!.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-medium text-lg ${avocat.photo ? 'hidden' : ''}`}>
+                {getInitials(avocat.nom)}
+              </div>
+            </div>
+
+            {/* Nom et cabinet */}
+            <div className="flex-1 min-w-0 mr-8">
+              <h3 className="klb-text-body font-medium">{avocat.nom}</h3>
+              {showStructure && (
+                <p className="klb-structure-text mt-2 mb-4">{avocat.structure}</p>
+              )}
+            </div>
+            
+            {/* Enveloppes de vote à gauche des contacts */}
+            <div className="flex items-center space-x-6 mr-6">
+              {/* Système d'enveloppes pour les votes */}
+              <div className="flex items-center space-x-3">
+                {/* Enveloppe 1er Tour */}
+                <div className="flex flex-col items-center">
+                  <Mail 
+                    className={`w-5 h-5 ${avocat.vote1erTour ? 'text-green-600' : 'text-red-500'}`}
+                    title={`Vote 1er Tour: ${avocat.vote1erTour ? 'Voté' : 'N\'a pas voté'}`}
+                  />
+                  <span className="text-xs text-gray-500 mt-1">1T</span>
+                </div>
+                
+                {/* Enveloppe 2ème Tour */}
+                <div className="flex flex-col items-center">
+                  <Mail 
+                    className={`w-5 h-5 ${avocat.vote2emeTour ? 'text-green-600' : 'text-red-500'}`}
+                    title={`Vote 2ème Tour: ${avocat.vote2emeTour ? 'Voté' : 'N\'a pas voté'}`}
+                  />
+                  <span className="text-xs text-gray-500 mt-1">2T</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div className="flex items-center space-x-2">
+              {avocat.email && (
+                <a 
+                  href={`mailto:${avocat.email}`}
+                  className="klb-icon-btn"
+                  title={`Envoyer un email à ${avocat.nom}`}
+                >
+                  <Mail className="w-4 h-4" />
+                </a>
+              )}
+              {avocat.telFixe && (
+                <a 
+                  href={`tel:${avocat.telFixe}`}
+                  className="klb-icon-btn"
+                  title={`Appeler au fixe: ${avocat.telFixe}`}
+                >
+                  <Phone className="w-4 h-4" />
+                </a>
+              )}
+              {avocat.telPortable && (
+                <a 
+                  href={`tel:${avocat.telPortable}`}
+                  className="klb-icon-btn"
+                  title={`Appeler au portable: ${avocat.telPortable}`}
+                >
+                  <Phone className="w-4 h-4" />
+                </a>
+              )}
+              {avocat.linkedin && (
+                <a 
+                  href={avocat.linkedin}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="klb-icon-btn"
+                  title={`Voir le profil LinkedIn de ${avocat.nom}`}
+                >
+                  <LinkedInIcon />
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Ligne des étiquettes en dessous */}
+          <div className="flex flex-wrap gap-2 ml-22">
+            {/* Classification */}
+            {avocat.classification && (
+              <span className={`klb-badge-small ${getClassificationColor(avocat.classification)}`}>
+                {avocat.classification}
+              </span>
+            )}
+            
+            {/* Étiquettes */}
+            {Object.entries(avocat.etiquettes).map(([etiquette, active]) => 
+              active && (
+                <span 
+                  key={etiquette}
+                  className={`klb-badge-small ${getEtiquetteColor(etiquette)}`}
+                >
+                  {etiquette}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
-      {/* Header Sticky */}
+      {/* Header */}
       <header className="klb-header">
-        <div className="klb-container py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-6">
+        <div className="klb-container h-full">
+          <div className="flex items-center justify-between h-full w-full">
+            {/* Logo ferré à gauche */}
+            <div className="flex-shrink-0">
               <Link href="/" className="klb-brand">
-                Kfouri & Laurent-Bellue
+                Outil KLB
               </Link>
-              <span className="klb-badge-outline">
-                🗳️ Élections Bâtonnier 2025
-              </span>
             </div>
-            <nav className="flex items-center space-x-4">
-              <Link href="/bernard" className="klb-nav-item">
-                Réseau Bernard
+            
+            {/* Espace flexible au centre */}
+            <div className="flex-grow"></div>
+            
+            {/* Navigation ferrée à droite */}
+            <nav className="flex items-center space-x-8 flex-shrink-0">
+              <Link 
+                href="/" 
+                className={`klb-nav-item ${pathname === '/' ? 'klb-nav-item-active' : ''}`}
+              >
+                Recherche
               </Link>
-              <Link href="/sabine" className="klb-nav-item">
-                Réseau Sabine
+              <Link 
+                href="/dashboard" 
+                className={`klb-nav-item ${pathname === '/dashboard' ? 'klb-nav-item-active' : ''}`}
+              >
+                Tableau de bord
               </Link>
-              <Link href="/cabinets-ventres-mous" className="klb-nav-item">
-                Cabinets Ventres Mous
-              </Link>
-              <Link href="/admin" className="klb-nav-item">
+              <Link 
+                href="/admin" 
+                className={`klb-nav-item ${pathname === '/admin' ? 'klb-nav-item-active' : ''}`}
+              >
                 Administration
               </Link>
             </nav>
@@ -105,174 +448,344 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="klb-page-content klb-container py-8">
-        {/* Welcome Section */}
-        <div className="mb-8 text-center">
-          <h2 className="text-4xl font-bold text-gray-800 mb-4">
-            Tableau de Bord de Campagne
-          </h2>
-          <p className="text-lg klb-text-muted max-w-2xl mx-auto">
-            Outil de gestion et d'analyse des relations pour les élections du Conseil de l'Ordre 
-            des avocats du barreau de Paris - Décembre 2025
-          </p>
-          {loading && (
-            <div className="mt-4 text-blue-600">
-              <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></span>
-              Chargement des données...
-            </div>
-          )}
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg inline-block">
-              <span className="text-red-700">❌ {error}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Stats Cards */}
-        <div className="klb-grid klb-grid-responsive mb-8">
-          {/* Total Lawyers */}
-          <div className="klb-card">
-            <div className="klb-card-body text-center">
-              <div className="klb-stat">{stats.totalLawyers}</div>
-              <h3 className="text-lg font-semibold text-gray-700">Avocats Total</h3>
-              <p className="klb-text-small">Base de données complète</p>
-            </div>
-          </div>
-
-          {/* Total Firms */}
-          <div className="klb-card">
-            <div className="klb-card-body text-center">
-              <div className="klb-stat">{stats.totalFirms}</div>
-              <h3 className="text-lg font-semibold text-gray-700">Cabinets</h3>
-              <p className="klb-text-small">Structures analysées</p>
-            </div>
-          </div>
-
-          {/* Bernard LinkedIn */}
-          <div className="klb-card">
-            <div className="klb-card-body text-center">
-              <div className="klb-stat">{stats.bernardLinkedIn}</div>
-              <h3 className="text-lg font-semibold text-gray-700">Réseau Bernard</h3>
-              <div className="klb-badge-linkedin mt-2">LinkedIn</div>
-            </div>
-          </div>
-
-          {/* Sabine LinkedIn */}
-          <div className="klb-card">
-            <div className="klb-card-body text-center">
-              <div className="klb-stat">{stats.sabineLinkedIn}</div>
-              <h3 className="text-lg font-semibold text-gray-700">Réseau Sabine</h3>
-              <div className="klb-badge-linkedin mt-2">LinkedIn</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Classifications Overview */}
-        <div className="klb-card mb-8">
-          <div className="klb-card-header">
-            <h3 className="text-xl font-semibold text-gray-800">Classification des Contacts</h3>
-          </div>
-          <div className="klb-card-body">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="klb-stat text-green-600">{stats.classifications.c1}</div>
-                <div className="klb-badge-c1 mt-2">C1 - Soutien Fort</div>
+      <main className="klb-container" style={{paddingTop: '60px'}}>
+        {/* Titre et barre de recherche */}
+        <div className="mb-12">
+          <h1 className="klb-section-title klb-page-title">
+            Recherche Cabinets & Avocats
+          </h1>
+          
+          {/* Barre de recherche avec toggle */}
+          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+            <div className="flex items-center space-x-4 mb-4">
+              {/* Toggle mode de recherche */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => handleSearchModeChange('cabinets')}
+                  className={`px-4 py-2 rounded-md transition-colors ${
+                    searchMode === 'cabinets' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Cabinets
+                </button>
+                <button
+                  onClick={() => handleSearchModeChange('avocats')}
+                  className={`px-4 py-2 rounded-md transition-colors ${
+                    searchMode === 'avocats' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Avocats
+                </button>
               </div>
-              <div className="text-center">
-                <div className="klb-stat text-green-500">{stats.classifications.c2}</div>
-                <div className="klb-badge-c2 mt-2">C2 - Soutien Modéré</div>
+              
+              {/* Barre de recherche */}
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={`Rechercher ${searchMode === 'cabinets' ? 'un cabinet' : 'un avocat'}...`}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-              <div className="text-center">
-                <div className="klb-stat" style={{ color: 'var(--klb-c3)' }}>{stats.classifications.c3}</div>
-                <div className="klb-badge-c3 mt-2">C3 - Neutre</div>
-              </div>
-              <div className="text-center">
-                <div className="klb-stat text-red-600">{stats.classifications.blacklist}</div>
-                <div className="klb-badge-blacklist mt-2">Blacklist</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="klb-grid klb-grid-responsive">
-          <Link href="/search" className="klb-card hover:scale-105 transition-transform">
-            <div className="klb-card-body text-center">
-              <div className="text-4xl mb-4">🔍</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Recherche Avocats</h3>
-              <p className="klb-text-small">Trouver et analyser les profils</p>
-            </div>
-          </Link>
-
-          <Link href="/classification" className="klb-card hover:scale-105 transition-transform">
-            <div className="klb-card-body text-center">
-              <div className="text-4xl mb-4">📊</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Classification</h3>
-              <p className="klb-text-small">Gérer les étiquettes C1-C2-C3</p>
-            </div>
-          </Link>
-
-          <Link href="/cabinets-analysis" className="klb-card hover:scale-105 transition-transform">
-            <div className="klb-card-body text-center">
-              <div className="text-4xl mb-4">🏢</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Analyse Cabinets</h3>
-              <p className="klb-text-small">Tri par taux de participation</p>
-            </div>
-          </Link>
-
-          <div className="klb-card hover:scale-105 transition-transform">
-            <div className="klb-card-body text-center">
-              <div className="text-4xl mb-4">📥</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Test Google Sheets</h3>
-              <p className="klb-text-small mb-4">Tester l'accès aux données</p>
-              <button 
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/test-sheets');
-                    const result = await response.json();
-                    alert(response.ok ? 'Connexion réussie !' : `Erreur: ${result.error}`);
-                  } catch (error) {
-                    alert('Erreur de connexion: ' + error);
-                  }
-                }}
-                className="klb-btn-primary"
+              
+              {/* Bouton filtres */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-4 py-3 border rounded-lg transition-colors flex items-center space-x-2 ${
+                  showFilters ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-300 hover:bg-gray-50'
+                }`}
               >
-                🧪 Test
+                <Filter className="w-5 h-5" />
+                <span>Filtres</span>
               </button>
             </div>
+
+            {/* Panel des filtres */}
+            {showFilters && (
+              <div className="border-t pt-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Filtre Ventres Mous (seulement en mode cabinets) */}
+                  {searchMode === 'cabinets' && (
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={filters.ventresMous}
+                          onChange={(e) => setFilters(prev => ({ ...prev, ventresMous: e.target.checked }))}
+                          className="rounded border-gray-300 text-blue-600"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Ventres Mous (10-30)</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Effectif min/max (seulement en mode cabinets) */}
+                  {searchMode === 'cabinets' && !filters.ventresMous && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Effectif minimum
+                        </label>
+                        <input
+                          type="number"
+                          value={filters.minEffectif}
+                          onChange={(e) => setFilters(prev => ({ ...prev, minEffectif: parseInt(e.target.value) || 1 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          min="1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Effectif maximum
+                        </label>
+                        <input
+                          type="number"
+                          value={filters.maxEffectif}
+                          onChange={(e) => setFilters(prev => ({ ...prev, maxEffectif: parseInt(e.target.value) || 999 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          min="1"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Classification */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Classification
+                    </label>
+                    <select
+                      value={filters.classification}
+                      onChange={(e) => setFilters(prev => ({ ...prev, classification: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Toutes</option>
+                      <option value="C1">C1 - Soutien Fort</option>
+                      <option value="C2">C2 - Soutien Modéré</option>
+                      <option value="C3">C3 - Neutre</option>
+                      <option value="Blacklist">Blacklist</option>
+                    </select>
+                  </div>
+
+                  {/* Étiquettes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Étiquette
+                    </label>
+                    <select
+                      value={filters.etiquette}
+                      onChange={(e) => setFilters(prev => ({ ...prev, etiquette: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Toutes</option>
+                      {availableEtiquettes.map(etiquette => (
+                        <option key={etiquette} value={etiquette}>
+                          {etiquette}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={resetFilters}
+                    className="text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Réinitialiser les filtres
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Status Bar */}
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${error ? 'bg-red-500' : loading ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
-              <span className="klb-text-small font-medium">
-                {error ? 'Erreur de connexion' : loading ? 'Chargement...' : 'Système opérationnel'}
-              </span>
-            </div>
-            <div className="klb-text-small">
-              {stats.lastUpdated ? (
-                `Dernière synchronisation: ${new Date(stats.lastUpdated).toLocaleString('fr-FR')}`
-              ) : (
-                'Dernière synchronisation: En attente...'
-              )}
-            </div>
+        {/* Résultats */}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-4 klb-text-caption">Chargement des données...</p>
           </div>
-          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-600">
-            <span>Taux de classification: {stats.classificationRate}%</span>
-            <span>Score de soutien: {stats.supportPercentage}%</span>
-            <span>Couverture LinkedIn: {stats.linkedInCoverage}%</span>
-            <button 
-              onClick={fetchStats} 
-              className="klb-btn-outline text-xs py-1 px-2 ml-auto"
-              disabled={loading}
-            >
-              🔄 Actualiser
-            </button>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-red-600">{error}</p>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Informations sur les résultats */}
+            <div className="mb-6 flex justify-between items-center">
+              <p className="klb-text-caption">
+                {pagination.total} {searchMode === 'cabinets' ? 'cabinets' : 'avocats'} trouvé{pagination.total > 1 ? 's' : ''}
+                {searchQuery && ` pour "${searchQuery}"`}
+              </p>
+              
+              {/* Tri */}
+              <div className="flex items-center space-x-2">
+                <span className="klb-text-micro">Tri par:</span>
+                <select
+                  value={filters.sortBy}
+                  onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
+                  className="px-2 py-1 border border-gray-300 rounded klb-text-micro"
+                >
+                  {searchMode === 'cabinets' ? (
+                    <>
+                      <option value="effectif">Effectif</option>
+                      <option value="nom">Nom</option>
+                      <option value="tauxVote1T">Taux vote 1T</option>
+                      <option value="tauxVote2T">Taux vote 2T</option>
+                      <option value="moyenneVote">Moyenne vote</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="nom">Nom</option>
+                      <option value="structure">Cabinet</option>
+                    </>
+                  )}
+                </select>
+                <select
+                  value={filters.sortOrder}
+                  onChange={(e) => setFilters(prev => ({ ...prev, sortOrder: e.target.value }))}
+                  className="px-2 py-1 border border-gray-300 rounded klb-text-micro"
+                >
+                  <option value="asc">Croissant</option>
+                  <option value="desc">Décroissant</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Liste des résultats */}
+            <div className="space-y-4">
+              {/* Mode Cabinets */}
+              {searchMode === 'cabinets' && cabinetsData.map((cabinet) => (
+                <div key={cabinet.nom} className="klb-card">
+                  <div className="klb-card-body">
+                    {/* En-tête du cabinet */}
+                    <div className="klb-cabinet-header" onClick={() => toggleCabinet(cabinet.nom)}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-6">
+                          <h2 className="klb-subsection-title">{cabinet.nom}</h2>
+                          <span className="klb-badge-outline">
+                            {cabinet.effectif} avocat{cabinet.effectif > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4">
+                          {/* Statistiques de vote modernes */}
+                          <div className="klb-vote-stats">
+                            <div className="klb-vote-stat">
+                              <div className="klb-vote-label">Vote 1er Tour</div>
+                              <div className="klb-vote-value">
+                                {cabinet.votants1T}/{cabinet.effectif}
+                                <span className="klb-vote-percentage">({Math.round(cabinet.tauxVote1T)}%)</span>
+                              </div>
+                            </div>
+                            
+                            <div className="klb-vote-stat">
+                              <div className="klb-vote-label">Vote 2nd Tour</div>
+                              <div className="klb-vote-value">
+                                {cabinet.votants2T}/{cabinet.effectif}
+                                <span className="klb-vote-percentage">({Math.round(cabinet.tauxVote2T)}%)</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Bouton expansion moderne */}
+                          <div className="klb-expand-btn">
+                            {expandedCabinets.has(cabinet.nom) ? (
+                              <ChevronUp className="w-5 h-5" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Liste des avocats (si étendu) */}
+                    {expandedCabinets.has(cabinet.nom) && (
+                      <div className="mt-6 pl-4 border-l-2 border-gray-200">
+                        <div className="grid gap-4">
+                          {cabinet.avocats.map((avocat) => renderAvocatCard(avocat))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Mode Avocats */}
+              {searchMode === 'avocats' && avocatsData.map((avocat) => renderAvocatCard(avocat, true))}
+            </div>
+
+            {/* Pagination moderne */}
+            {pagination.totalPages > 1 && (
+              <div className="klb-pagination">
+                {/* Première page */}
+                <button
+                  onClick={() => handlePageChange(1)}
+                  disabled={pagination.page === 1}
+                  className="klb-pagination-btn"
+                  title="Première page"
+                >
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                
+                {/* Page précédente */}
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={!pagination.hasPrev}
+                  className="klb-pagination-btn"
+                  title="Page précédente"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                
+                {/* Numéros de page */}
+                {getPageNumbers().map((pageNumber, index) => (
+                  pageNumber === '...' ? (
+                    <div key={`ellipsis-${index}`} className="klb-pagination-ellipsis">
+                      ...
+                    </div>
+                  ) : (
+                    <button
+                      key={pageNumber}
+                      onClick={() => handlePageChange(pageNumber as number)}
+                      className={`klb-pagination-btn ${pagination.page === pageNumber ? 'active' : ''}`}
+                    >
+                      {pageNumber}
+                    </button>
+                  )
+                ))}
+                
+                {/* Page suivante */}
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={!pagination.hasNext}
+                  className="klb-pagination-btn"
+                  title="Page suivante"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                
+                {/* Dernière page */}
+                <button
+                  onClick={() => handlePageChange(pagination.totalPages)}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="klb-pagination-btn"
+                  title="Dernière page"
+                >
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </main>
     </div>
   );

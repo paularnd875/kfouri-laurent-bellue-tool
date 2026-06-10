@@ -312,12 +312,6 @@ export default function ClassificationPage() {
               <Link href="/search" className="klb-nav-item">
                 Recherche
               </Link>
-              <Link href="/bernard" className="klb-nav-item">
-                Réseau Bernard
-              </Link>
-              <Link href="/sabine" className="klb-nav-item">
-                Réseau Sabine
-              </Link>
             </nav>
           </div>
         </div>

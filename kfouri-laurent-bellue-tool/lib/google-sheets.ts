@@ -29,10 +29,10 @@ export interface LawyerSheetData {
   cabinet?: string;
   
   // Colonnes importantes mentionnées
-  classement?: string; // Colonne AS - C1/C2/C3/Blacklist
-  linkedin_sabine?: boolean; // Colonne BG - Relations LinkedIn Sabine
-  linkedin_bernard?: boolean; // Colonne BH - Relations LinkedIn Bernard  
-  photo_url?: string; // Colonne BU - URL photo
+  classement?: string; // Colonne AT - C1/C2/C3/Blacklist
+  linkedin_sabine?: boolean; // Colonne BH - Relations LinkedIn Sabine (1 si relation, 0 sinon)
+  linkedin_bernard?: boolean; // Colonne BI - Relations LinkedIn Bernard (1 si relation, 0 sinon) 
+  photo_url?: string; // Colonne BW - URL photo
   
   // Colonnes AX à BQ (étiquettes additionnelles)
   additional_tags?: { [key: string]: any };
@@ -111,26 +111,35 @@ export async function fetchAllSheetData(): Promise<{
         }
       });
 
-      // Traitement spécial pour les colonnes par position (AS, BG, BH, BU)
-      // AS = colonne 45 (A=1, S=19 → AS=45)
-      if (row[44]) { // Index 44 = colonne AS
-        lawyer.classement = row[44];
-      }
-      
-      // BG = colonne 59 (B=2, G=7 → BG=59) 
-      if (row[58]) { // Index 58 = colonne BG
-        lawyer.linkedin_sabine = row[58] === '1' || row[58].toLowerCase() === 'true';
-      }
-      
-      // BH = colonne 60
-      if (row[59]) { // Index 59 = colonne BH  
-        lawyer.linkedin_bernard = row[59] === '1' || row[59].toLowerCase() === 'true';
-      }
-      
-      // BU = colonne 73
-      if (row[72]) { // Index 72 = colonne BU
-        lawyer.photo_url = row[72];
-      }
+      // Traitement spécial pour les colonnes importantes - utilisation des noms d'en-têtes
+      headers.forEach((header, index) => {
+        const cellValue = row[index] || '';
+        const headerName = header.trim();
+        
+        // Classification (colonne AT - index 45)
+        if (headerName === 'Classification' || headerName.includes('classement') || headerName.includes('Classement') || index === 45) {
+          if (cellValue && cellValue.trim() && cellValue !== '#N/A' && cellValue !== '#N/D') {
+            lawyer.classement = cellValue.trim();
+          }
+        }
+        
+        // LinkedIn Sabine (colonne BH - index 59)
+        else if (headerName.includes('Sabine') || index === 59) {
+          lawyer.linkedin_sabine = cellValue === '1' || cellValue.toLowerCase() === 'true';
+        }
+        
+        // LinkedIn Bernard (colonne BI - index 60) 
+        else if (headerName.includes('Bernard') || index === 60) {
+          lawyer.linkedin_bernard = cellValue === '1' || cellValue.toLowerCase() === 'true';
+        }
+        
+        // Photo URL (colonne BW - index 74)
+        else if (headerName === 'URL\nPDP' || headerName.includes('photo') || headerName.includes('PDP') || headerName.includes('URL') || index === 74) {
+          if (cellValue && cellValue !== '#N/A' && cellValue !== '#N/D' && cellValue.trim().length > 0 && (cellValue.includes('http') || cellValue.includes('www'))) {
+            lawyer.photo_url = cellValue.trim();
+          }
+        }
+      });
 
       return lawyer;
     });
@@ -174,10 +183,10 @@ export async function analyzeSheetStructure() {
     const analysis = {
       totalColumns: headers.length,
       importantColumns: {
-        classement: headers[44] || 'AS', // Colonne AS
-        linkedin_sabine: headers[58] || 'BG', // Colonne BG
-        linkedin_bernard: headers[59] || 'BH', // Colonne BH  
-        photo_url: headers[72] || 'BU', // Colonne BU
+        classement: headers[45] || 'AT', // Colonne AT (index 45)
+        linkedin_sabine: headers[59] || 'BH', // Colonne BH (index 59) - Sabine
+        linkedin_bernard: headers[60] || 'BI', // Colonne BI (index 60) - Bernard  
+        photo_url: headers[74] || 'BW', // Colonne BW (index 74)
       },
       allHeaders: headers,
       columnsAXtoBQ: headers.slice(49, 69), // Colonnes AX(50) à BQ(69)

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface ClassificationChange {
   prenomnom: string;
@@ -25,6 +26,7 @@ interface AdminStats {
 }
 
 export default function AdminPage() {
+  const pathname = usePathname();
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -177,26 +179,41 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
       <header className="klb-header">
-        <div className="klb-container py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <Link href="/" className="text-2xl font-bold" style={{ color: 'var(--klb-primary)' }}>
-                KFOURI & LAURENT-BELLUE
+        <div className="klb-container h-full">
+          <div className="flex items-center justify-between h-full w-full">
+            {/* Logo ferré à gauche */}
+            <div className="flex-shrink-0">
+              <Link href="/" className="klb-brand">
+                Outil KLB
               </Link>
-              <span className="klb-badge-outline">
-                ⚙️ Administration
-              </span>
             </div>
-            <nav className="flex items-center space-x-4">
-              <Link href="/" className="klb-nav-item">
-                Accueil
-              </Link>
-              <Link href="/search" className="klb-nav-item">
+            
+            {/* Espace flexible au centre */}
+            <div className="flex-grow"></div>
+            
+            {/* Navigation ferrée à droite */}
+            <nav className="flex items-center space-x-8 flex-shrink-0">
+              <Link 
+                href="/" 
+                className={`klb-nav-item ${pathname === '/' ? 'klb-nav-item-active' : ''}`}
+              >
                 Recherche
+              </Link>
+              <Link 
+                href="/dashboard" 
+                className={`klb-nav-item ${pathname === '/dashboard' ? 'klb-nav-item-active' : ''}`}
+              >
+                Tableau de bord
+              </Link>
+              <Link 
+                href="/admin" 
+                className={`klb-nav-item ${pathname === '/admin' ? 'klb-nav-item-active' : ''}`}
+              >
+                Administration
               </Link>
               <button
                 onClick={() => setIsAuthenticated(false)}
-                className="klb-nav-item text-red-600 hover:text-red-800"
+                className="klb-nav-item text-red-400 hover:text-red-300"
               >
                 Déconnexion
               </button>
@@ -206,9 +223,9 @@ export default function AdminPage() {
       </header>
 
       {/* Main Content */}
-      <main className="klb-container py-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
+      <main className="klb-page-content klb-container py-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-800 klb-page-title">
             ⚙️ Interface d'Administration
           </h1>
           <p className="text-lg klb-text-muted max-w-2xl mx-auto">
@@ -218,7 +235,7 @@ export default function AdminPage() {
 
         {/* Stats Overview */}
         {stats && (
-          <div className="klb-grid klb-grid-responsive mb-8">
+          <div className="klb-grid klb-grid-responsive klb-section-spacing">
             <div className="klb-card">
               <div className="klb-card-body text-center">
                 <div className="klb-stat">{stats.totalLawyers}</div>
@@ -323,21 +340,6 @@ export default function AdminPage() {
                 </div>
               </Link>
 
-              <Link href="/bernard" className="klb-card hover:scale-105 transition-transform block">
-                <div className="klb-card-body text-center">
-                  <div className="text-3xl mb-2">🔗</div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Réseau Bernard</h3>
-                  <p className="klb-text-small">{stats?.bernardLinkedIn || 0} connexions LinkedIn</p>
-                </div>
-              </Link>
-
-              <Link href="/sabine" className="klb-card hover:scale-105 transition-transform block">
-                <div className="klb-card-body text-center">
-                  <div className="text-3xl mb-2">🔗</div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Réseau Sabine</h3>
-                  <p className="klb-text-small">{stats?.sabineLinkedIn || 0} connexions LinkedIn</p>
-                </div>
-              </Link>
 
               <button 
                 onClick={() => window.open('/api/admin/classifications?export=csv')}

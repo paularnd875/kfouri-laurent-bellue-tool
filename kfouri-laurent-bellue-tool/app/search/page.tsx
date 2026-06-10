@@ -182,12 +182,6 @@ export default function SearchPage() {
               <Link href="/" className="klb-nav-item">
                 Accueil
               </Link>
-              <Link href="/bernard" className="klb-nav-item">
-                Réseau Bernard
-              </Link>
-              <Link href="/sabine" className="klb-nav-item">
-                Réseau Sabine
-              </Link>
               <Link href="/classification" className="klb-nav-item">
                 Classification
               </Link>
