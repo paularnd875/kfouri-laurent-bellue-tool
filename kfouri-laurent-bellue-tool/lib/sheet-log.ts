@@ -16,7 +16,25 @@ const HEADER = [
   'Nouvelle classification',
   'Action',
   'Utilisateur',
+  'Nom normalisé',
 ];
+
+// Reproduit fidelement l'Apps Script uniformizeText : supprime ponctuation,
+// espaces, accents, chiffres et emojis, met en minuscules et tout colle.
+// Ex : "Jean Michel De Préssense" -> "jeanmicheldepressense"
+function normalizeName(input: string): string {
+  let s = String(input || '');
+  s = s.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()'"’‘]/g, ''); // ponctuation
+  s = s.replace(/\s/g, ''); // espaces
+  s = s.normalize('NFD').replace(/[̀-ͯ]/g, ''); // accents (diacritiques)
+  s = s.replace(/Ã§/g, 'c'); // mojibake "ç" (Ã§)
+  s = s.replace(/[0-9]/g, ''); // chiffres
+  s = s
+    .replace(/\p{Extended_Pictographic}/gu, '') // emojis / pictogrammes
+    .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '') // drapeaux (indicateurs regionaux)
+    .replace(/[‍︎️]/g, ''); // ZWJ + selecteurs de variante
+  return s.toLowerCase();
+}
 
 function getWritableSheets() {
   const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}');
@@ -42,13 +60,14 @@ async function ensureTab(sheets: ReturnType<typeof getWritableSheets>): Promise<
       spreadsheetId: SHEET_ID,
       requestBody: { requests: [{ addSheet: { properties: { title: TAB_NAME } } }] },
     });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `'${TAB_NAME}'!A1`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [HEADER] },
-    });
   }
+  // Toujours (re)poser l'en-tete complet (couvre l'ajout de colonnes).
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID,
+    range: `'${TAB_NAME}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [HEADER] },
+  });
   tabEnsured = true;
 }
 
@@ -76,6 +95,7 @@ export async function logClassifChange(change: ClassifChange): Promise<{ ok: boo
       change.nouvelle || '',
       action,
       change.utilisateur || 'Equipe KLB',
+      normalizeName(change.nom || ''),
     ];
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
