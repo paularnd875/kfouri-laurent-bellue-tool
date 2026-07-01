@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { logClassifChange } from '@/lib/sheet-log';
+
+export const dynamic = 'force-dynamic';
 
 // Stockage temporaire des modifications (en production, utiliser une base de données)
 let classificationChanges: Map<string, string> = new Map();
@@ -73,6 +76,16 @@ export async function POST(request: Request) {
       // Stocker la modification
       classificationChanges.set(prenomnom, classification);
 
+      // Journalisation durable dans l'onglet Google Sheet (best-effort)
+      await logClassifChange({
+        email: body.email,
+        nom: body.nomComplet || prenomnom,
+        structure: body.structure,
+        ancienne: body.ancienneClassification,
+        nouvelle: classification,
+        utilisateur: 'Equipe KLB',
+      });
+
       return NextResponse.json({
         success: true,
         message: 'Classification mise à jour',
@@ -83,7 +96,15 @@ export async function POST(request: Request) {
     } else if (action === 'remove') {
       // Supprimer la modification
       const removed = classificationChanges.delete(prenomnom);
-      
+
+      await logClassifChange({
+        email: body.email,
+        nom: body.nomComplet || prenomnom,
+        structure: body.structure,
+        nouvelle: '',
+        utilisateur: 'Equipe KLB',
+      });
+
       return NextResponse.json({
         success: true,
         message: removed ? 'Modification supprimée' : 'Aucune modification trouvée',

@@ -80,6 +80,10 @@ export default function LawyerCard({
         },
         body: JSON.stringify({
           prenomnom: lawyer.prenomnom || lawyer.nom_complet,
+          nomComplet: lawyer.nom_complet || lawyer.prenomnom,
+          email: lawyer.email || '',
+          structure: lawyer.cabinet || '',
+          ancienneClassification: lawyer.classement || '',
           classification: selectedClassification,
           action: 'update'
         })

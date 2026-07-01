@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logClassifChange } from '@/lib/sheet-log';
+
+export const dynamic = 'force-dynamic';
 
 // Interface pour une classification
 interface Classification {
@@ -45,7 +48,17 @@ export async function POST(request: NextRequest) {
         };
         
         classificationsEnMemoire.push(nouvelleClassification);
-        
+
+        // Journalisation durable dans l'onglet Google Sheet (best-effort)
+        await logClassifChange({
+          email: classificationData.email,
+          nom: classificationData.nom,
+          structure: classificationData.structure,
+          ancienne: classificationData.ancienneClassification,
+          nouvelle: classificationData.nouvelleClassification,
+          utilisateur: 'Equipe KLB',
+        });
+
         return NextResponse.json({
           success: true,
           message: 'Classification ajoutée',
