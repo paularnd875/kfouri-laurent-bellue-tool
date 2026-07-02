@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { globalCache } from '@/lib/cache';
+import { columnIndices, etiquetteColumns } from '@/lib/column-map';
 
 // Interface pour un avocat avec toutes ses données
 interface Avocat {
@@ -91,21 +92,23 @@ export async function GET(request: NextRequest) {
     console.log('📋 En-têtes récupérés:', headers.length, 'colonnes');
     // Header mapping debug logs removed - photos working correctly
 
-    // Créer le mapping dynamique des colonnes
+    // Mapping des colonnes par NOM d'en-tête (index de secours) via le résolveur central
+    const idx = columnIndices(headers);
+    const etiquettes = etiquetteColumns(headers);
     const columnMapping: ColumnMapping = {
-      nom: headers.findIndex(h => h === 'Nom complet') >= 0 ? headers.findIndex(h => h === 'Nom complet') : 8, // I par défaut
-      telFixe: headers.findIndex(h => h === 'tel_fixe') >= 0 ? headers.findIndex(h => h === 'tel_fixe') : 9, // J par défaut
-      telPortable: headers.findIndex(h => h === 'Numéro de portable') >= 0 ? headers.findIndex(h => h === 'Numéro de portable') : 10, // K par défaut
-      email: headers.findIndex(h => h === 'Email') >= 0 ? headers.findIndex(h => h === 'Email') : 14, // O par défaut  
-      linkedin: headers.findIndex(h => h === 'LinkedIn') >= 0 ? headers.findIndex(h => h === 'LinkedIn') : 16, // Q par défaut
-      structure: headers.findIndex(h => h === 'Structure') >= 0 ? headers.findIndex(h => h === 'Structure') : 35, // AJ par défaut
-      classification: headers.findIndex(h => h === 'Classification') >= 0 ? headers.findIndex(h => h === 'Classification') : 45, // AT par défaut
-      photo: headers.findIndex(h => h === 'URL\nPDP') >= 0 ? headers.findIndex(h => h === 'URL\nPDP') : 74, // BW par défaut
-      vote1T: headers.findIndex(h => h === 'Vote 1T') >= 0 ? headers.findIndex(h => h === 'Vote 1T') : 71, // BT par défaut
-      vote2T: headers.findIndex(h => h === 'Vote 2T') >= 0 ? headers.findIndex(h => h === 'Vote 2T') : 72, // BU par défaut
-      etiquettesStart: 50, // AY par défaut
-      etiquettesEnd: 69,   // BR par défaut
-      etiquettesNames: headers.slice(50, 70).filter(h => h && h.trim() !== '') // Noms des étiquettes
+      nom: idx.nom_complet,
+      telFixe: idx.tel_fixe,
+      telPortable: idx.telephone,
+      email: idx.email,
+      linkedin: idx.linkedin,
+      structure: idx.cabinet,
+      classification: idx.classement,
+      photo: idx.photo_url,
+      vote1T: idx.vote1T,
+      vote2T: idx.vote2T,
+      etiquettesStart: 0,
+      etiquettesEnd: 0,
+      etiquettesNames: [],
     };
 
     console.log('🗂️ Mapping des colonnes:', columnMapping);
@@ -148,11 +151,10 @@ export async function GET(request: NextRequest) {
           etiquettes: {}
         };
 
-        // Traiter les étiquettes (colonnes AY à BR)
-        columnMapping.etiquettesNames.forEach((etiquetteName, etiquetteIndex) => {
-          const colIndex = columnMapping.etiquettesStart + etiquetteIndex;
+        // Étiquettes (soutiens) détectées par nom d'en-tête, robuste au réordonnancement
+        etiquettes.forEach(({ name, index: colIndex }) => {
           if (row[colIndex] === '1') {
-            avocat.etiquettes[etiquetteName] = true;
+            avocat.etiquettes[name] = true;
           }
         });
 

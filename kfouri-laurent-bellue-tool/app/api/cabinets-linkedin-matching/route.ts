@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { globalCache } from '@/lib/cache';
+import { columnIndices } from '@/lib/column-map';
 
 // Interface pour les données de matching LinkedIn
 interface LinkedInMatch {
@@ -93,43 +94,36 @@ export async function GET(request: NextRequest) {
     const sheetName = resourcesSheet?.properties?.title || 'Base principale';
     console.log('Nom d\'onglet utilisé:', sheetName);
     
-    // Récupération des colonnes nécessaires pour LinkedIn
-    // Colonnes: I (nom), O (email), AJ (structure), BH (Sabine), BI (Bernard)
-    const range = `${sheetName}!A:BK`; // Inclure jusqu'à BK pour BH et BI
-    
+    // Toutes les colonnes (mapping par nom d'en-tête ensuite)
+    const range = `${sheetName}!A:BZ`;
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
       range,
     });
 
     const rows = response.data.values;
-    
+
     if (!rows || rows.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Aucune donnée trouvée' 
+      return NextResponse.json({
+        success: false,
+        error: 'Aucune donnée trouvée'
       });
     }
+
+    // Résolution des colonnes par NOM d'en-tête (index de secours)
+    const idx = columnIndices(rows[0] || []);
 
     // Skip header row et traiter les données LinkedIn
     const linkedinData: LinkedInMatch[] = rows.slice(1)
       .map((row, index): LinkedInMatch | null => {
         if (!row || row.length === 0) return null;
 
-        const nomComplet = row[8] || '';  // Colonne I (index 8)
-        const email = row[14] || '';      // Colonne O (index 14)  
-        const structure = row[35] || '';  // Colonne AJ (index 35)
-
-        // Colonnes LinkedIn selon les spécifications :
-        // BH = Sabine (index 59) - 1 si relation, 0 sinon
-        // BI = Bernard (index 60) - 1 si relation, 0 sinon
-        const linkedin_sabine = row[59] === '1';  // Colonne BH
-        const linkedin_bernard = row[60] === '1'; // Colonne BI
-        
-        // Debug pour les 5 premiers
-        if (index < 5) {
-          console.log(`🔍 Debug LinkedIn ligne ${index + 1}: BH(59)="${row[59]}" BI(60)="${row[60]}" → Sabine: ${linkedin_sabine}, Bernard: ${linkedin_bernard}`);
-        }
+        const nomComplet = row[idx.nom_complet] || '';
+        const email = row[idx.email] || '';
+        const structure = row[idx.cabinet] || '';
+        const linkedin_sabine = row[idx.linkedin_sabine] === '1';
+        const linkedin_bernard = row[idx.linkedin_bernard] === '1';
 
         return {
           nomComplet,

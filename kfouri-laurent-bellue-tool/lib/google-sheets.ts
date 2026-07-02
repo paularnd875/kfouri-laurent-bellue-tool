@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { columnIndices } from './column-map';
 
 // Configuration pour l'accès sécurisé au Google Sheet
 const SHEET_ID = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
@@ -67,79 +68,40 @@ export async function fetchAllSheetData(): Promise<{
     const headers = rows[0] as string[];
     const dataRows = rows.slice(1);
 
+    // Résolution des colonnes par NOM d'en-tête (avec index de secours)
+    const idx = columnIndices(headers);
+    const at = (row: string[], key: string): string => {
+      const i = idx[key];
+      return i != null && i >= 0 ? (row[i] || '') : '';
+    };
+
     // Mapper les données en objets
     const data: LawyerSheetData[] = dataRows.map(row => {
-      const lawyer: LawyerSheetData = {
-        raw_data: {}
-      };
+      const raw_data: { [key: string]: string } = {};
+      headers.forEach((header, index) => { raw_data[header] = row[index] || ''; });
 
-      // Mapper chaque colonne
-      headers.forEach((header, index) => {
-        const cellValue = row[index] || '';
-        
-        // Mapping des colonnes importantes
-        switch (header.toLowerCase().trim()) {
-          case 'prenomnom':
-          case 'prenom nom':
-          case 'nom complet':
-          case 'nomcomplet':
-            if (!lawyer.prenomnom) { // Only set if not already set
-              lawyer.prenomnom = cellValue;
-            }
-            lawyer.nom_complet = cellValue;
-            break;
-          case 'civilite':
-          case 'civilité':
-            lawyer.civilite = cellValue;
-            break;
-          case 'cabinet':
-          case 'structure':
-            lawyer.cabinet = cellValue;
-            break;
-          case 'telephone':
-          case 'téléphone':
-            lawyer.telephone = cellValue;
-            break;
-          case 'email':
-            lawyer.email = cellValue;
-            break;
-          default:
-            // Pour toutes les autres colonnes, stocker dans raw_data
-            if (lawyer.raw_data) {
-              lawyer.raw_data[header] = cellValue;
-            }
-        }
-      });
+      const lawyer: LawyerSheetData = { raw_data };
 
-      // Traitement spécial pour les colonnes importantes - utilisation des noms d'en-têtes
-      headers.forEach((header, index) => {
-        const cellValue = row[index] || '';
-        const headerName = header.trim();
-        
-        // Classification (colonne AT - index 45)
-        if (headerName === 'Classification' || headerName.includes('classement') || headerName.includes('Classement') || index === 45) {
-          if (cellValue && cellValue.trim() && cellValue !== '#N/A' && cellValue !== '#N/D') {
-            lawyer.classement = cellValue.trim();
-          }
-        }
-        
-        // LinkedIn Sabine (colonne BH - index 59)
-        else if (headerName.includes('Sabine') || index === 59) {
-          lawyer.linkedin_sabine = cellValue === '1' || cellValue.toLowerCase() === 'true';
-        }
-        
-        // LinkedIn Bernard (colonne BI - index 60) 
-        else if (headerName.includes('Bernard') || index === 60) {
-          lawyer.linkedin_bernard = cellValue === '1' || cellValue.toLowerCase() === 'true';
-        }
-        
-        // Photo URL (colonne BW - index 74)
-        else if (headerName === 'URL\nPDP' || headerName.includes('photo') || headerName.includes('PDP') || headerName.includes('URL') || index === 74) {
-          if (cellValue && cellValue !== '#N/A' && cellValue !== '#N/D' && cellValue.trim().length > 0 && (cellValue.includes('http') || cellValue.includes('www'))) {
-            lawyer.photo_url = cellValue.trim();
-          }
-        }
-      });
+      const prenomnom = at(row, 'prenomnom');
+      lawyer.prenomnom = prenomnom;
+      lawyer.nom_complet = at(row, 'nom_complet') || prenomnom;
+      lawyer.civilite = at(row, 'civilite');
+      lawyer.cabinet = at(row, 'cabinet');
+      lawyer.telephone = at(row, 'telephone') || at(row, 'tel_fixe');
+      lawyer.email = at(row, 'email');
+
+      const cls = at(row, 'classement').trim();
+      if (cls && cls !== '#N/A' && cls !== '#N/D') lawyer.classement = cls;
+
+      const sabine = at(row, 'linkedin_sabine');
+      lawyer.linkedin_sabine = sabine === '1' || sabine.toLowerCase() === 'true';
+      const bernard = at(row, 'linkedin_bernard');
+      lawyer.linkedin_bernard = bernard === '1' || bernard.toLowerCase() === 'true';
+
+      const pdp = at(row, 'photo_url').trim();
+      if (pdp && pdp !== '#N/A' && pdp !== '#N/D' && (pdp.includes('http') || pdp.includes('www'))) {
+        lawyer.photo_url = pdp;
+      }
 
       return lawyer;
     });

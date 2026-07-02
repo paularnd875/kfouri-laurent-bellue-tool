@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { globalCache } from '@/lib/cache';
+import { columnIndices, etiquetteColumns } from '@/lib/column-map';
 
 // Interface pour un avocat avec toutes ses données
 interface Avocat {
@@ -61,21 +62,20 @@ export async function GET(request: NextRequest) {
 
       const headers = headersResponse.data.values?.[0] || [];
 
-      // Créer le mapping dynamique des colonnes
+      // Mapping des colonnes par NOM d'en-tête (index de secours) via le résolveur central
+      const idx = columnIndices(headers);
+      const etiquettes = etiquetteColumns(headers);
       const columnMapping = {
-        nom: headers.findIndex(h => h === 'Nom complet') >= 0 ? headers.findIndex(h => h === 'Nom complet') : 8,
-        telFixe: headers.findIndex(h => h === 'tel_fixe') >= 0 ? headers.findIndex(h => h === 'tel_fixe') : 9,
-        telPortable: headers.findIndex(h => h === 'Numéro de portable') >= 0 ? headers.findIndex(h => h === 'Numéro de portable') : 10,
-        email: headers.findIndex(h => h === 'Email') >= 0 ? headers.findIndex(h => h === 'Email') : 14,
-        linkedin: headers.findIndex(h => h === 'LinkedIn') >= 0 ? headers.findIndex(h => h === 'LinkedIn') : 16,
-        structure: headers.findIndex(h => h === 'Structure') >= 0 ? headers.findIndex(h => h === 'Structure') : 35,
-        classification: headers.findIndex(h => h === 'Classification') >= 0 ? headers.findIndex(h => h === 'Classification') : 45,
-        photo: headers.findIndex(h => h === 'URL\nPDP') >= 0 ? headers.findIndex(h => h === 'URL\nPDP') : 74,
-        vote1T: headers.findIndex(h => h === 'Vote 1T') >= 0 ? headers.findIndex(h => h === 'Vote 1T') : 71,
-        vote2T: headers.findIndex(h => h === 'Vote 2T') >= 0 ? headers.findIndex(h => h === 'Vote 2T') : 72,
-        etiquettesStart: 50,
-        etiquettesEnd: 69,
-        etiquettesNames: headers.slice(50, 70).filter(h => h && h.trim() !== '')
+        nom: idx.nom_complet,
+        telFixe: idx.tel_fixe,
+        telPortable: idx.telephone,
+        email: idx.email,
+        linkedin: idx.linkedin,
+        structure: idx.cabinet,
+        classification: idx.classement,
+        photo: idx.photo_url,
+        vote1T: idx.vote1T,
+        vote2T: idx.vote2T,
       };
 
       // Récupérer toutes les données
@@ -107,11 +107,10 @@ export async function GET(request: NextRequest) {
           etiquettes: {}
         };
 
-        // Traiter les étiquettes
-        columnMapping.etiquettesNames.forEach((etiquetteName, etiquetteIndex) => {
-          const colIndex = columnMapping.etiquettesStart + etiquetteIndex;
+        // Étiquettes (soutiens) détectées par nom d'en-tête, robuste au réordonnancement
+        etiquettes.forEach(({ name, index: colIndex }) => {
           if (row[colIndex] === '1') {
-            avocat.etiquettes[etiquetteName] = true;
+            avocat.etiquettes[name] = true;
           }
         });
 
