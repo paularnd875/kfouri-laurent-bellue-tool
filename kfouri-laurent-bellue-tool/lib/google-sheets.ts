@@ -25,6 +25,9 @@ export interface LawyerSheetData {
   civilite?: string;
   nom_complet?: string;
   telephone?: string;
+  tel_fixe?: string; // Colonne tel_fixe
+  tel_portable?: string; // Colonne "Numéro de portable"
+  linkedin?: string; // Colonne LinkedIn (URL du profil)
   email?: string;
   annee_serment?: number;
   cabinet?: string;
@@ -87,7 +90,10 @@ export async function fetchAllSheetData(): Promise<{
       lawyer.nom_complet = at(row, 'nom_complet') || prenomnom;
       lawyer.civilite = at(row, 'civilite');
       lawyer.cabinet = at(row, 'cabinet');
-      lawyer.telephone = at(row, 'telephone') || at(row, 'tel_fixe');
+      lawyer.tel_fixe = at(row, 'tel_fixe');
+      lawyer.tel_portable = at(row, 'telephone'); // clé 'telephone' = colonne "Numéro de portable"
+      lawyer.telephone = lawyer.tel_portable || lawyer.tel_fixe;
+      lawyer.linkedin = at(row, 'linkedin');
       lawyer.email = at(row, 'email');
 
       const cls = at(row, 'classement').trim();

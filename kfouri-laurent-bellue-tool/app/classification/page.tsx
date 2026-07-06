@@ -2,12 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Mail, Phone } from 'lucide-react';
+
+// Icone LinkedIn personnalisee (identique a la page d'accueil)
+const LinkedInIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <div className={`${className} flex items-center justify-center font-bold text-gray-600`} style={{ fontSize: '14px' }}>
+    in
+  </div>
+);
 
 interface LawyerClassification {
   prenomnom?: string;
   nom_complet?: string;
   email?: string;
   cabinet?: string;
+  tel_fixe?: string;
+  tel_portable?: string;
+  linkedin?: string;
   classement?: string;
   linkedin_bernard?: boolean;
   linkedin_sabine?: boolean;
@@ -113,8 +124,49 @@ function LawyerClassificationCard({
             {lawyer.cabinet && (
               <div><strong>Cabinet:</strong> {lawyer.cabinet}</div>
             )}
-            {lawyer.email && (
-              <div><strong>Email:</strong> {lawyer.email}</div>
+
+            {/* Boutons de contact (email / tel fixe / tel portable / LinkedIn) */}
+            {(lawyer.email || lawyer.tel_fixe || lawyer.tel_portable || lawyer.linkedin) && (
+              <div className="flex items-center space-x-2 pt-1">
+                {lawyer.email && (
+                  <a
+                    href={`mailto:${lawyer.email}`}
+                    className="klb-icon-btn"
+                    title={`Envoyer un email a ${lawyer.nom_complet || lawyer.prenomnom}`}
+                  >
+                    <Mail className="w-4 h-4" />
+                  </a>
+                )}
+                {lawyer.tel_fixe && (
+                  <a
+                    href={`tel:${lawyer.tel_fixe}`}
+                    className="klb-icon-btn"
+                    title={`Appeler au fixe: ${lawyer.tel_fixe}`}
+                  >
+                    <Phone className="w-4 h-4" />
+                  </a>
+                )}
+                {lawyer.tel_portable && (
+                  <a
+                    href={`tel:${lawyer.tel_portable}`}
+                    className="klb-icon-btn"
+                    title={`Appeler au portable: ${lawyer.tel_portable}`}
+                  >
+                    <Phone className="w-4 h-4" />
+                  </a>
+                )}
+                {lawyer.linkedin && lawyer.linkedin.includes('http') && (
+                  <a
+                    href={lawyer.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="klb-icon-btn"
+                    title={`Voir le profil LinkedIn de ${lawyer.nom_complet || lawyer.prenomnom}`}
+                  >
+                    <LinkedInIcon />
+                  </a>
+                )}
+              </div>
             )}
             
             {/* Affichage des sources de classification */}
