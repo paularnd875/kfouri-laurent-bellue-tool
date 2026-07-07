@@ -9,9 +9,9 @@ export type MailProvider = 'default' | 'outlook365' | 'gmail';
 export const MAIL_PREF_KEY = 'klb_mail_provider';
 
 export const MAIL_PROVIDERS: { value: MailProvider; label: string }[] = [
-  { value: 'default', label: 'Application mail par défaut' },
-  { value: 'outlook365', label: 'Outlook / Microsoft 365 (pro)' },
-  { value: 'gmail', label: 'Gmail / Google Workspace' },
+  { value: 'default', label: 'Outlook installé sur le PC (app par défaut)' },
+  { value: 'outlook365', label: 'Outlook / Microsoft 365 (en ligne)' },
+  { value: 'gmail', label: 'Gmail (en ligne)' },
 ];
 
 export interface ComposeLink {
