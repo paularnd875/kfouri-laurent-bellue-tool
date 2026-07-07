@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Mail, Phone } from 'lucide-react';
+import { Phone } from 'lucide-react';
+import MailButton from '@/components/MailButton';
+import MailPrefSelector from '@/components/MailPrefSelector';
 
 // Icone LinkedIn personnalisee (identique a la page d'accueil)
 const LinkedInIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
@@ -129,13 +131,7 @@ function LawyerClassificationCard({
             {(lawyer.email || lawyer.tel_fixe || lawyer.tel_portable || lawyer.linkedin) && (
               <div className="flex items-center space-x-2 pt-1">
                 {lawyer.email && (
-                  <a
-                    href={`mailto:${lawyer.email}`}
-                    className="klb-icon-btn"
-                    title={`Envoyer un email a ${lawyer.nom_complet || lawyer.prenomnom}`}
-                  >
-                    <Mail className="w-4 h-4" />
-                  </a>
+                  <MailButton email={lawyer.email} name={lawyer.nom_complet || lawyer.prenomnom} />
                 )}
                 {lawyer.tel_fixe && (
                   <a
@@ -362,6 +358,7 @@ export default function ClassificationPage() {
               </span>
             </div>
             <nav className="flex items-center space-x-4">
+              <MailPrefSelector />
               <Link href="/" className="klb-nav-item">
                 Accueil
               </Link>

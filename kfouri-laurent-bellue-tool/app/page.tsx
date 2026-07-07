@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Mail, Phone, ExternalLink, ChevronDown, ChevronUp, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
+import MailButton from '@/components/MailButton';
+import MailPrefSelector from '@/components/MailPrefSelector';
 
 // Interface pour un avocat avec toutes ses données
 interface Avocat {
@@ -406,13 +408,7 @@ export default function HomePage() {
             {/* Contact */}
             <div className="flex items-center space-x-2">
               {avocat.email && (
-                <a 
-                  href={`mailto:${avocat.email}`}
-                  className="klb-icon-btn"
-                  title={`Envoyer un email à ${avocat.nom}`}
-                >
-                  <Mail className="w-4 h-4" />
-                </a>
+                <MailButton email={avocat.email} name={avocat.nom} />
               )}
               {avocat.telFixe && (
                 <a 
@@ -506,8 +502,9 @@ export default function HomePage() {
             
             {/* Navigation ferrée à droite */}
             <nav className="flex items-center space-x-8 flex-shrink-0">
-              <Link 
-                href="/" 
+              <MailPrefSelector />
+              <Link
+                href="/"
                 className={`klb-nav-item ${pathname === '/' ? 'klb-nav-item-active' : ''}`}
               >
                 Recherche
