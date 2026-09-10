@@ -3,7 +3,8 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   // Routes publiques (sans protection)
-  const publicRoutes = ['/login', '/api'];
+  // '/q' = liens personnels des participants (authentifies par jeton, pas de login).
+  const publicRoutes = ['/login', '/api', '/q/'];
   
   const { pathname } = request.nextUrl;
   
