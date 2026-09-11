@@ -240,12 +240,12 @@ export default function QualifPage() {
                   </div>
 
                   <div className="qz-details">
-                    {contact.cabinet && (
-                      <div className="qz-row">
-                        <span className="qz-ic"><Building2 size={15} /></span>
-                        <strong>{contact.cabinet}</strong>
-                      </div>
-                    )}
+                    <div className="qz-row">
+                      <span className="qz-ic"><Building2 size={15} /></span>
+                      <strong style={contact.cabinet ? undefined : { opacity: 0.5 }}>
+                        {contact.cabinet || 'Cabinet non renseigné'}
+                      </strong>
+                    </div>
                     {specialties && (
                       <div className="qz-row">
                         <span className="qz-ic">✦</span>
