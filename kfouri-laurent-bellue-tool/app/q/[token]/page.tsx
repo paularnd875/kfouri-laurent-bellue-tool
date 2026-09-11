@@ -11,6 +11,7 @@ import {
   ArrowRight,
   ExternalLink,
   Star,
+  HelpCircle,
   Loader2,
   Building2,
   RotateCcw,
@@ -27,26 +28,29 @@ interface Contact {
   circle: string;
 }
 
-type Choice = 'C1' | 'C2' | 'C3' | 'Blacklist';
+type Choice = 'C1' | 'C2' | 'C3' | 'Blacklist' | 'NSP';
 
 const CHOICES: { key: Choice; klass: string; title: string; sub: string }[] = [
-  { key: 'C1', klass: 'certain', title: 'Confirmé', sub: 'Soutien certain' },
-  { key: 'C2', klass: 'probable', title: 'Presque acquis', sub: 'Soutien attendu, à confirmer' },
-  { key: 'C3', klass: 'contact', title: 'À convaincre', sub: 'Appeler ou solliciter' },
-  { key: 'Blacklist', klass: 'exclude', title: 'À exclure', sub: 'Concurrent, ennemi ou à écarter' },
+  { key: 'C1', klass: 'certain', title: 'Confirmé', sub: 'Soutien certain (C1)' },
+  { key: 'C2', klass: 'probable', title: 'Presque acquis', sub: 'Soutien attendu, à confirmer (C2)' },
+  { key: 'C3', klass: 'contact', title: 'À convaincre', sub: 'Appeler ou solliciter (C3)' },
+  { key: 'Blacklist', klass: 'exclude', title: 'À exclure', sub: 'Concurrent ou à écarter (Blacklist)' },
+  { key: 'NSP', klass: 'unknown', title: 'Ne connaît pas', sub: 'Sans classification' },
 ];
 
 const CHOICE_LABELS: Record<Choice, string> = {
-  C1: 'Confirmé · Soutien certain',
-  C2: 'Presque acquis · Soutien attendu, à confirmer',
-  C3: 'À convaincre · Appeler ou solliciter',
-  Blacklist: 'À exclure',
+  C1: 'Confirmé · Soutien certain (C1)',
+  C2: 'Presque acquis · Soutien attendu, à confirmer (C2)',
+  C3: 'À convaincre · Appeler ou solliciter (C3)',
+  Blacklist: 'À exclure (Blacklist)',
+  NSP: 'Ne connaît pas · Sans classification',
 };
 
 function choiceIcon(key: Choice) {
   if (key === 'C1') return <Check size={20} strokeWidth={3} />;
   if (key === 'C2') return <CheckCheck size={20} strokeWidth={3} />;
   if (key === 'C3') return <ArrowUpRight size={20} strokeWidth={3} />;
+  if (key === 'NSP') return <HelpCircle size={20} strokeWidth={3} />;
   return <X size={20} strokeWidth={3} />;
 }
 
@@ -364,6 +368,8 @@ const CSS = `
 .qz-choice-contact .qz-mark{background:#b75f15;}
 .qz-choice-exclude{color:#ad3d4b;border-color:rgba(173,61,75,.12);background:#ffedf0;}
 .qz-choice-exclude .qz-mark{background:#ad3d4b;}
+.qz-choice-unknown{color:#5b647a;border-color:rgba(91,100,122,.14);background:#f1f3f7;}
+.qz-choice-unknown .qz-mark{background:#5b647a;}
 .qz-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 4px 0;}
 .qz-text-btn{display:inline-flex;align-items:center;gap:4px;padding:10px 4px;color:#687086;background:transparent;border:0;cursor:pointer;font-weight:750;}
 .qz-text-btn:disabled{opacity:.32;cursor:default;}

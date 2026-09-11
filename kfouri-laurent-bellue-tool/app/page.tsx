@@ -521,6 +521,12 @@ export default function HomePage() {
               >
                 Administration
               </Link>
+              <Link
+                href="/qualification-admin"
+                className={`klb-nav-item ${pathname === '/qualification-admin' ? 'klb-nav-item-active' : ''}`}
+              >
+                Qualification
+              </Link>
               <button
                 onClick={handleLogout}
                 className="klb-nav-item text-red-400 hover:text-red-300 flex items-center space-x-2"

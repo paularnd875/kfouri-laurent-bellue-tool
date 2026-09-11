@@ -277,7 +277,10 @@ export async function listWithStats(): Promise<ParticipantStats[]> {
   return out;
 }
 
-const VALID_CHOICES = new Set(['C1', 'C2', 'C3', 'Blacklist']);
+// NSP = « Ne connaît pas / sans classification » : choix explicite (distinct de
+// « Je passe » qui laisse vide). Ecrit dans l'onglet du participant, compte comme
+// traite (ne repasse pas dans « revoir les passees »).
+const VALID_CHOICES = new Set(['C1', 'C2', 'C3', 'Blacklist', 'NSP']);
 
 export async function saveChoice(
   p: Participant,
