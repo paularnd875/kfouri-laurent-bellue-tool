@@ -15,6 +15,7 @@ import {
   Loader2,
   Building2,
   RotateCcw,
+  Pencil,
 } from 'lucide-react';
 
 interface Contact {
@@ -85,7 +86,7 @@ export default function QualifPage() {
       if (!res.ok) throw new Error(data.error || 'Erreur inconnue.');
       setParticipant(data.participant || '');
       setContacts(Array.isArray(data.contacts) ? data.contacts : []);
-      setCursor(Number(data.cursor) || 0);
+      setCursor(0);
       setStatus('ready');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e));
@@ -128,7 +129,6 @@ export default function QualifPage() {
         action: 'saveChoice',
         contact: { id: contact.id, name: contact.name, cabinet: contact.cabinet, linkedin: contact.linkedin },
         choice,
-        nextCursor: next,
       });
       setContacts((prev) => prev.map((c, i) => (i === cursor ? { ...c, circle: choice } : c)));
       transitionTo(next, 'Enregistré');
@@ -138,41 +138,41 @@ export default function QualifPage() {
     }
   }
 
-  async function persistMove(next: number, msg?: string) {
-    setBusy(true);
-    try {
-      const data = await post({ action: 'moveCursor', cursor: next });
-      transitionTo(Number(data.cursor) || 0, msg);
-    } catch (e) {
-      setBusy(false);
-      showToast(e instanceof Error ? e.message : 'Erreur', true);
-    }
-  }
-
+  // Navigation purement cote client (pas de curseur serveur).
   function skip() {
-    if (!busy) persistMove(cursor + 1, 'Passé');
+    if (busy) return;
+    transitionTo(cursor + 1, 'Passé');
   }
   function back() {
-    if (!busy && cursor > 0) persistMove(cursor - 1);
+    if (busy || cursor <= 0) return;
+    transitionTo(cursor - 1);
   }
   function backFromComplete() {
-    if (!busy && contacts.length) persistMove(contacts.length - 1);
+    if (busy || !contacts.length) return;
+    transitionTo(contacts.length - 1);
   }
 
-  async function startNewPass() {
+  async function reload(action: 'startNewPass' | 'reviewDone', emptyMsg: string, okMsg: string) {
     if (busy) return;
     setBusy(true);
     try {
-      const data = await post({ action: 'startNewPass' });
+      const data = await post({ action });
       const list: Contact[] = Array.isArray(data.contacts) ? data.contacts : [];
       setContacts(list);
       setCursor(0);
       setBusy(false);
-      showToast(list.length ? 'Nouveau passage lancé' : 'Tout est déjà classé');
+      showToast(list.length ? okMsg : emptyMsg);
     } catch (e) {
       setBusy(false);
       showToast(e instanceof Error ? e.message : 'Erreur', true);
     }
+  }
+
+  function startNewPass() {
+    reload('startNewPass', 'Tout est déjà qualifié', 'Reprise des personnes passées');
+  }
+  function reviewDone() {
+    reload('reviewDone', 'Aucune réponse à revoir', 'Vous pouvez modifier vos réponses');
   }
 
   const progress = total ? Math.min(100, (cursor / total) * 100) : 100;
@@ -304,7 +304,10 @@ export default function QualifPage() {
                 </p>
                 <div className="qz-complete-actions">
                   <button className="qz-secondary" type="button" onClick={startNewPass} disabled={busy}>
-                    <RotateCcw size={16} /> Revoir les personnes passées
+                    <RotateCcw size={16} /> Reprendre les personnes passées
+                  </button>
+                  <button className="qz-secondary" type="button" onClick={reviewDone} disabled={busy}>
+                    <Pencil size={16} /> Modifier mes réponses
                   </button>
                   <button className="qz-text-btn" type="button" onClick={backFromComplete} disabled={busy}>
                     <ChevronLeft size={16} /> Revoir la dernière personne
