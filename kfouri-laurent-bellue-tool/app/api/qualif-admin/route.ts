@@ -10,6 +10,7 @@ import {
 } from '@/lib/qualif';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 // API d'administration des liens de qualification. Protegee par le cookie
 // d'auth de l'outil (klb_authenticated) : les participants n'y ont pas acces.

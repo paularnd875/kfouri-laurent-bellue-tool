@@ -3,6 +3,7 @@ import { buildContacts, findByToken, saveChoice } from '@/lib/qualif';
 import type { Participant } from '@/lib/qualif';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 // API participante, authentifiee par jeton (aucune connexion requise).
 // GET  ?token=...              -> { participant, contacts (non encore qualifies par lui) }

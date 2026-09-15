@@ -2,6 +2,20 @@ import { google } from 'googleapis';
 import crypto from 'crypto';
 import { fetchAllSheetData } from './google-sheets';
 import { logClassifChange } from './sheet-log';
+import { globalCache } from './cache';
+
+// Cache court de la base (A:BZ, ~38k lignes) partage par la page participante et
+// l'admin : evite un fetch complet a chaque ouverture de lien. Data de campagne
+// = pas de besoin temps reel ; TTL 2 min. Les reponses des participants ne sont
+// PAS mises en cache (lues fraiches a chaque fois).
+const SHEET_CACHE_KEY = 'qualif:sheetdata';
+async function getSheetData(): Promise<Awaited<ReturnType<typeof fetchAllSheetData>>> {
+  const cached = globalCache.get<Awaited<ReturnType<typeof fetchAllSheetData>>>(SHEET_CACHE_KEY);
+  if (cached) return cached;
+  const res = await fetchAllSheetData();
+  globalCache.set(SHEET_CACHE_KEY, res, 120000);
+  return res;
+}
 
 // Coeur de l'outil "Qualification des contacts" (interface swipe).
 // Tout est stocke dans le meme Google Sheet que le reste de l'outil KLB :
@@ -293,7 +307,7 @@ function isVoted(raw: Record<string, unknown> | undefined): boolean {
 export async function buildContacts(p: Participant): Promise<QualifContact[]> {
   const net = NETWORKS[p.network];
   if (!net) throw new Error('Reseau inconnu pour ce participant.');
-  const [{ data }, answers] = await Promise.all([fetchAllSheetData(), readAnswers(p.tabName)]);
+  const [{ data }, answers] = await Promise.all([getSheetData(), readAnswers(p.tabName)]);
   const R = makeResolver(data[0]?.raw_data);
 
   const list = data
@@ -331,7 +345,7 @@ export interface ParticipantStats extends Participant {
 export async function listWithStats(): Promise<ParticipantStats[]> {
   const participants = await readParticipants();
   if (participants.length === 0) return [];
-  const { data } = await fetchAllSheetData();
+  const { data } = await getSheetData();
   const R = makeResolver(data[0]?.raw_data);
   const out: ParticipantStats[] = [];
   for (const p of participants) {
