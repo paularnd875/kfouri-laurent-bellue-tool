@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Loader2,
   Building2,
+  Users,
   RotateCcw,
   Pencil,
 } from 'lucide-react';
@@ -22,6 +23,9 @@ interface Contact {
   id: string;
   name: string;
   cabinet: string;
+  sizeBracket: string;
+  origins: string[];
+  sharedWith: string;
   anneeSerment: string;
   linkedin: string;
   photo: string;
@@ -246,6 +250,12 @@ export default function QualifPage() {
                         {contact.cabinet || 'Cabinet non renseigné'}
                       </strong>
                     </div>
+                    {contact.sizeBracket && (
+                      <div className="qz-row">
+                        <span className="qz-ic"><Users size={15} /></span>
+                        <strong>{contact.sizeBracket.replace('&+', ' et +')} avocats</strong>
+                      </div>
+                    )}
                     {specialties && (
                       <div className="qz-row">
                         <span className="qz-ic">✦</span>
@@ -253,6 +263,17 @@ export default function QualifPage() {
                       </div>
                     )}
                   </div>
+
+                  {(contact.origins.length > 0 || contact.sharedWith) && (
+                    <div className="qz-origins">
+                      {contact.origins.map((o) => (
+                        <span key={o} className="qz-tag">{o}</span>
+                      ))}
+                      {contact.sharedWith && (
+                        <span className="qz-tag qz-tag-shared">Aussi&nbsp;: {contact.sharedWith}</span>
+                      )}
+                    </div>
+                  )}
 
                   {hasLinkedin && (
                     <a className="qz-linkedin" href={contact.linkedin} target="_blank" rel="noopener noreferrer">
@@ -355,6 +376,9 @@ const CSS = `
 .qz-row strong{display:block;font-size:.86rem;line-height:1.4;font-weight:400;}
 .qz-linkedin{display:inline-flex;align-items:center;gap:7px;margin-top:17px;padding:9px 13px;color:#185da1;border-radius:99px;background:#edf6ff;font-size:.86rem;font-weight:750;text-decoration:none;}
 .qz-current{margin-top:14px;color:#687086;font-size:.8rem;font-weight:700;}
+.qz-origins{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:16px;}
+.qz-tag{padding:4px 11px;border-radius:99px;background:#eef0f6;color:#4b5163;font-size:.72rem;font-weight:750;letter-spacing:.01em;}
+.qz-tag-shared{background:#efe9fb;color:#5b47a8;}
 .qz-choices{display:grid;gap:10px;margin-top:17px;}
 .qz-choice{display:grid;grid-template-columns:42px 1fr;align-items:center;width:100%;min-height:68px;padding:10px 15px;color:#172033;text-align:left;border:1px solid transparent;border-radius:18px;cursor:pointer;transition:transform 130ms ease,box-shadow 130ms ease,filter 130ms ease;}
 .qz-choice:active{transform:scale(.975);}

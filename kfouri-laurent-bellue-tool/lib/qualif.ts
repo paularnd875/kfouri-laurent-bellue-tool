@@ -17,12 +17,60 @@ const CONFIG_TAB = '_QUALIF_ACCESS';
 const CONFIG_HEADER = ['id', 'name', 'token', 'network', 'tabName', 'active', 'cursor', 'createdAt'];
 const ANSWER_HEADER = ['Horodatage', 'ID', 'Nom complet', 'Cabinet', 'LinkedIn', 'Cercle'];
 
-// Reseaux disponibles en v1 (les 2 candidats). Cle = booleen expose par
-// fetchAllSheetData ; label = affichage admin.
-export const NETWORKS: Record<string, { label: string; field: 'linkedin_sabine' | 'linkedin_bernard' }> = {
-  sabine: { label: 'Sabine (SK)', field: 'linkedin_sabine' },
-  bernard: { label: 'Bernard (BLB)', field: 'linkedin_bernard' },
+// Reseaux disponibles (les 2 candidats). La liste d'un candidat = UNION de tous
+// ses canaux (LinkedIn + Outlook + Telephone). `select` = en-tetes dont le OR
+// definit l'appartenance ; `sources` = canaux affiches en badge ; `otherLinkedin`
+// = en-tete LinkedIn de l'AUTRE candidat (badge « aussi connu de … »).
+export interface NetworkDef {
+  label: string;
+  select: string[];
+  sources: { label: string; headers: string[] }[];
+  otherLabel: string;
+  otherLinkedin: string;
+}
+
+export const NETWORKS: Record<string, NetworkDef> = {
+  sabine: {
+    label: 'Sabine (SK)',
+    select: ['LINKEDIN SK', 'OUTLOOK SK', 'TÉLÉPHONE SK', 'TÉLÉPHONE SK V2'],
+    sources: [
+      { label: 'LinkedIn', headers: ['LINKEDIN SK'] },
+      { label: 'Outlook', headers: ['OUTLOOK SK'] },
+      { label: 'Téléphone', headers: ['TÉLÉPHONE SK', 'TÉLÉPHONE SK V2'] },
+    ],
+    otherLabel: 'Bernard',
+    otherLinkedin: 'LINKEDIN BLB',
+  },
+  bernard: {
+    label: 'Bernard (BLB)',
+    select: ['LINKEDIN BLB', 'OUTLOOK BLB', 'TÉLÉPHONE BLB'],
+    sources: [
+      { label: 'LinkedIn', headers: ['LINKEDIN BLB'] },
+      { label: 'Outlook', headers: ['OUTLOOK BLB'] },
+      { label: 'Téléphone', headers: ['TÉLÉPHONE BLB'] },
+    ],
+    otherLabel: 'Sabine',
+    otherLinkedin: 'LINKEDIN SK',
+  },
 };
+
+// Lecture tolerante de raw_data par NOM d'en-tete (accents/casse/espaces ignores).
+function normH(h: string): string {
+  return String(h || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function rawVal(raw: Record<string, unknown> | undefined, header: string): string {
+  if (!raw) return '';
+  const t = normH(header);
+  for (const [k, v] of Object.entries(raw)) if (normH(k) === t) return String(v ?? '').trim();
+  return '';
+}
+function rawTrue(raw: Record<string, unknown> | undefined, header: string): boolean {
+  const s = rawVal(raw, header).toLowerCase();
+  return s === '1' || s === 'true' || s === 'oui' || s === 'x';
+}
+function inNetwork(raw: Record<string, unknown> | undefined, net: NetworkDef): boolean {
+  return net.select.some((h) => rawTrue(raw, h));
+}
 
 export interface Participant {
   id: string;
@@ -40,6 +88,9 @@ export interface QualifContact {
   id: string;
   name: string;
   cabinet: string;
+  sizeBracket: string; // tranche de taille du cabinet ('' si inconnue)
+  origins: string[]; // canaux du candidat ou figure ce contact (LinkedIn/Outlook/Telephone)
+  sharedWith: string; // nom de l'autre candidat si connu de lui aussi, sinon ''
   anneeSerment: string;
   linkedin: string;
   photo: string;
@@ -232,17 +283,22 @@ export async function buildContacts(p: Participant): Promise<QualifContact[]> {
   const [{ data }, answers] = await Promise.all([fetchAllSheetData(), readAnswers(p.tabName)]);
 
   const list = data
-    .filter((l) => l[net.field] === true)
+    .filter((l) => inNetwork(l.raw_data, net))
     .map((l): QualifContact => {
       const id = String(l.prenomnom || l.nom_complet || '').trim();
+      const raw = l.raw_data;
+      const bracket = rawVal(raw, 'Tranche taille cabinet');
       return {
         id,
         name: l.nom_complet || l.prenomnom || 'Sans nom',
         cabinet: l.cabinet || '',
+        sizeBracket: bracket && !/non trouv/i.test(bracket) ? bracket : '',
+        origins: net.sources.filter((s) => s.headers.some((h) => rawTrue(raw, h))).map((s) => s.label),
+        sharedWith: rawTrue(raw, net.otherLinkedin) ? net.otherLabel : '',
         anneeSerment: l.annee_serment ? String(l.annee_serment) : '',
         linkedin: l.linkedin || '',
         photo: l.photo_url || '',
-        voted: isVoted(l.raw_data),
+        voted: isVoted(raw),
         circle: answers.get(id)?.circle || '',
       };
     })
@@ -265,7 +321,7 @@ export async function listWithStats(): Promise<ParticipantStats[]> {
   const out: ParticipantStats[] = [];
   for (const p of participants) {
     const net = NETWORKS[p.network];
-    const total = net ? data.filter((l) => l[net.field] === true).length : 0;
+    const total = net ? data.filter((l) => inNetwork(l.raw_data, net)).length : 0;
     let answered = 0;
     try {
       answered = (await readAnswers(p.tabName)).size;
