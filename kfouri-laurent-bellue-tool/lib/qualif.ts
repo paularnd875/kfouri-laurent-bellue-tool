@@ -55,21 +55,34 @@ export const NETWORKS: Record<string, NetworkDef> = {
 };
 
 // Lecture tolerante de raw_data par NOM d'en-tete (accents/casse/espaces ignores).
+// On resout les en-tetes UNE fois (index normalise -> cle exacte) pour eviter de
+// re-scanner toutes les colonnes a chaque ligne (la base fait des dizaines de
+// milliers de lignes).
 function normH(h: string): string {
   return String(h || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
-function rawVal(raw: Record<string, unknown> | undefined, header: string): string {
-  if (!raw) return '';
-  const t = normH(header);
-  for (const [k, v] of Object.entries(raw)) if (normH(k) === t) return String(v ?? '').trim();
-  return '';
+type Raw = Record<string, unknown> | undefined;
+interface Resolver {
+  val: (raw: Raw, header: string) => string;
+  bool: (raw: Raw, header: string) => boolean;
 }
-function rawTrue(raw: Record<string, unknown> | undefined, header: string): boolean {
-  const s = rawVal(raw, header).toLowerCase();
-  return s === '1' || s === 'true' || s === 'oui' || s === 'x';
+function makeResolver(sample: Raw): Resolver {
+  const idx: Record<string, string> = {};
+  for (const k of Object.keys(sample || {})) {
+    const n = normH(k);
+    if (!(n in idx)) idx[n] = k;
+  }
+  const val = (raw: Raw, header: string) => String((raw as Record<string, unknown>)?.[idx[normH(header)]] ?? '').trim();
+  return {
+    val,
+    bool: (raw, header) => {
+      const s = val(raw, header).toLowerCase();
+      return s === '1' || s === 'true' || s === 'oui' || s === 'x';
+    },
+  };
 }
-function inNetwork(raw: Record<string, unknown> | undefined, net: NetworkDef): boolean {
-  return net.select.some((h) => rawTrue(raw, h));
+function inNetwork(R: Resolver, raw: Raw, net: NetworkDef): boolean {
+  return net.select.some((h) => R.bool(raw, h));
 }
 
 export interface Participant {
@@ -281,20 +294,21 @@ export async function buildContacts(p: Participant): Promise<QualifContact[]> {
   const net = NETWORKS[p.network];
   if (!net) throw new Error('Reseau inconnu pour ce participant.');
   const [{ data }, answers] = await Promise.all([fetchAllSheetData(), readAnswers(p.tabName)]);
+  const R = makeResolver(data[0]?.raw_data);
 
   const list = data
-    .filter((l) => inNetwork(l.raw_data, net))
+    .filter((l) => inNetwork(R, l.raw_data, net))
     .map((l): QualifContact => {
       const id = String(l.prenomnom || l.nom_complet || '').trim();
       const raw = l.raw_data;
-      const bracket = rawVal(raw, 'Tranche taille cabinet');
+      const bracket = R.val(raw, 'Tranche taille cabinet');
       return {
         id,
         name: l.nom_complet || l.prenomnom || 'Sans nom',
         cabinet: l.cabinet || '',
         sizeBracket: bracket && !/non trouv/i.test(bracket) ? bracket : '',
-        origins: net.sources.filter((s) => s.headers.some((h) => rawTrue(raw, h))).map((s) => s.label),
-        sharedWith: rawTrue(raw, net.otherLinkedin) ? net.otherLabel : '',
+        origins: net.sources.filter((s) => s.headers.some((h) => R.bool(raw, h))).map((s) => s.label),
+        sharedWith: R.bool(raw, net.otherLinkedin) ? net.otherLabel : '',
         anneeSerment: l.annee_serment ? String(l.annee_serment) : '',
         linkedin: l.linkedin || '',
         photo: l.photo_url || '',
@@ -318,10 +332,11 @@ export async function listWithStats(): Promise<ParticipantStats[]> {
   const participants = await readParticipants();
   if (participants.length === 0) return [];
   const { data } = await fetchAllSheetData();
+  const R = makeResolver(data[0]?.raw_data);
   const out: ParticipantStats[] = [];
   for (const p of participants) {
     const net = NETWORKS[p.network];
-    const total = net ? data.filter((l) => inNetwork(l.raw_data, net)).length : 0;
+    const total = net ? data.filter((l) => inNetwork(R, l.raw_data, net)).length : 0;
     let answered = 0;
     try {
       answered = (await readAnswers(p.tabName)).size;
