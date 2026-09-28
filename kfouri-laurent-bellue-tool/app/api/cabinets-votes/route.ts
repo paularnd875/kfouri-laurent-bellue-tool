@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { parseServiceAccountKey } from '@/lib/google-credentials';
 import { globalCache } from '@/lib/cache';
 
 // Interface pour les données de vote des cabinets
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     let credentials;
     
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      credentials = parseServiceAccountKey();
     } else {
       // Fallback vers variables séparées si nécessaire
       credentials = {
@@ -57,23 +58,22 @@ export async function GET(request: NextRequest) {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
-    
-    // Récupération des données de l'onglet "Synthèse vote toutes structures"
-    const range = "'Synthèse vote toutes structures'!A:H"; // Colonnes A à H
-    
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-    });
+    const spreadsheetId = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
 
-    const rows = response.data.values;
-    
-    if (!rows || rows.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Aucune donnée trouvée' 
+    // L'onglet de synthèse des votes n'existe plus sur la nouvelle feuille.
+    // Lecture best-effort : si l'onglet est absent, on renvoie un jeu de données
+    // vide (mêmes champs) plutôt que de casser la réponse.
+    const range = "'Synthèse vote toutes structures'!A:H"; // Colonnes A à H
+    let rows: string[][] = [];
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range,
       });
+      rows = (response.data.values as string[][]) || [];
+    } catch (e) {
+      console.warn('Onglet votes absent sur la nouvelle feuille, données neutres:', e instanceof Error ? e.message : e);
+      rows = [];
     }
 
     // Skip header row et traiter les données
@@ -133,15 +133,16 @@ export async function GET(request: NextRequest) {
       return aValue - bValue;
     });
 
-    // Statistiques
+    // Statistiques (garde des valeurs neutres si aucun cabinet, ex. onglet votes absent)
+    const nbCab = filteredCabinets.length;
     const stats = {
-      totalCabinets: filteredCabinets.length,
-      effectifMoyen: Math.round(
-        filteredCabinets.reduce((sum, cab) => sum + cab.effectif, 0) / filteredCabinets.length
-      ),
-      tauxVoteMoyen: Math.round(
-        filteredCabinets.reduce((sum, cab) => sum + cab.moyenneVote, 0) / filteredCabinets.length * 100
-      ) / 100,
+      totalCabinets: nbCab,
+      effectifMoyen: nbCab > 0 ? Math.round(
+        filteredCabinets.reduce((sum, cab) => sum + cab.effectif, 0) / nbCab
+      ) : 0,
+      tauxVoteMoyen: nbCab > 0 ? Math.round(
+        filteredCabinets.reduce((sum, cab) => sum + cab.moyenneVote, 0) / nbCab * 100
+      ) / 100 : 0,
       repartitionTranches: filteredCabinets.reduce((acc, cab) => {
         acc[cab.trancheEffectif] = (acc[cab.trancheEffectif] || 0) + 1;
         return acc;

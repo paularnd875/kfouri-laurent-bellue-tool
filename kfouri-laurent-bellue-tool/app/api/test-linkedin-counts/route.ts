@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { parseServiceAccountKey } from '@/lib/google-credentials';
+import { columnIndices } from '@/lib/column-map';
+import { getSourceRange } from '@/lib/google-sheets';
 
 export async function GET() {
   try {
     // Configuration Google Sheets
     let credentials;
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      credentials = parseServiceAccountKey();
     } else {
       credentials = {
         client_email: process.env.GOOGLE_CLIENT_EMAIL,
@@ -20,28 +23,29 @@ export async function GET() {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
+    const spreadsheetId = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
 
-    // Récupérer les en-têtes d'abord
+    // Récupérer les en-têtes d'abord (onglet source résolu par gid)
     const headersResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "'Base principale'!1:1",
+      range: await getSourceRange(sheets, '1:1'),
     });
-    
+
     const headers = headersResponse.data.values?.[0] || [];
     console.log('📋 En-têtes récupérés:', headers.length, 'colonnes');
 
-    // Analyser les colonnes BH et BI
-    const bhIndex = 59; // Colonne BH (Sabine selon tes indications)
-    const biIndex = 60; // Colonne BI (Bernard selon tes indications)
-    
-    console.log(`📍 Colonne BH (${bhIndex}): "${headers[bhIndex]}"`);
-    console.log(`📍 Colonne BI (${biIndex}): "${headers[biIndex]}"`);
+    // Colonnes LinkedIn Sabine (SK) / Bernard (BLB) résolues PAR NOM d'en-tête.
+    const idx = columnIndices(headers);
+    const bhIndex = idx.linkedin_sabine; // Sabine (LINKEDIN SK)
+    const biIndex = idx.linkedin_bernard; // Bernard (LINKEDIN BLB)
 
-    // Récupérer seulement les colonnes BH et BI pour compter
+    console.log(`📍 LinkedIn Sabine (${bhIndex}): "${headers[bhIndex]}"`);
+    console.log(`📍 LinkedIn Bernard (${biIndex}): "${headers[biIndex]}"`);
+
+    // Récupérer toutes les données (onglet source résolu par gid, plage A:CZ)
     const dataResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: "'Base principale'!BH:BI",
+      range: await getSourceRange(sheets, 'A:CZ'),
     });
 
     const rows = dataResponse.data.values || [];
@@ -56,9 +60,9 @@ export async function GET() {
     const sampleData: Array<{ row: number, bh: string, bi: string }> = [];
 
     rows.slice(1).forEach((row, index) => {
-      const bhValue = row[0] || ''; // Colonne BH (Sabine)
-      const biValue = row[1] || ''; // Colonne BI (Bernard)
-      
+      const bhValue = bhIndex >= 0 ? (row[bhIndex] || '') : ''; // Sabine (LINKEDIN SK)
+      const biValue = biIndex >= 0 ? (row[biIndex] || '') : ''; // Bernard (LINKEDIN BLB)
+
       const sabineHasRelation = bhValue === '1';
       const bernardHasRelation = biValue === '1';
 

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { parseServiceAccountKey } from '@/lib/google-credentials';
+import { columnIndices } from '@/lib/column-map';
+import { getSourceRange, getSourceTabTitle } from '@/lib/google-sheets';
 
 // Interface pour les données des avocats d'un cabinet
 interface AvocatCabinet {
@@ -28,7 +31,7 @@ export async function GET(request: NextRequest) {
     let credentials;
     
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      credentials = parseServiceAccountKey();
     } else {
       credentials = {
         client_email: process.env.GOOGLE_CLIENT_EMAIL,
@@ -42,78 +45,41 @@ export async function GET(request: NextRequest) {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
-    
-    // D'abord, obtenir les informations sur les onglets pour voir les noms exacts
-    const spreadsheetInfo = await sheets.spreadsheets.get({
-      spreadsheetId,
-    });
-    
-    console.log('Onglets disponibles:', spreadsheetInfo.data.sheets?.map(s => s.properties?.title));
-    
-    // Trouver le bon nom d'onglet - utiliser "Base principale" qui contient les données
-    const resourcesSheet = spreadsheetInfo.data.sheets?.find(s => 
-      s.properties?.title?.toLowerCase().includes('base') ||
-      s.properties?.title?.toLowerCase().includes('principale') ||
-      s.properties?.title?.toLowerCase().includes('ressources') ||
-      s.properties?.title?.toLowerCase().includes('humaines')
-    );
-    
-    const sheetName = resourcesSheet?.properties?.title || 'Base principale';
+    const spreadsheetId = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
+
+    // Onglet source résolu par gid (immuable), plage A:CZ
+    const sheetName = await getSourceTabTitle(sheets);
     console.log('Nom d\'onglet utilisé:', sheetName);
-    
-    // Récupération des données avec le nom exact trouvé - élargie pour couvrir toutes les colonnes A:BX
-    const range = `${sheetName}!A:BX`;
-    
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range,
+      range: await getSourceRange(sheets, 'A:CZ'),
     });
 
     const rows = response.data.values;
-    
+
     if (!rows || rows.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Aucune donnée trouvée' 
+      return NextResponse.json({
+        success: false,
+        error: 'Aucune donnée trouvée'
       });
     }
 
-    // Utiliser les indices fixes des colonnes comme spécifié par l'utilisateur
-    // Colonne I = index 8 : "Nom complet" (lisible pour le client)
-    // Colonne J = index 9 : téléphone fixe  
-    // Colonne K = index 10 : portable
-    // Colonne O = index 14 : email
-    // Colonne Q = index 16 : LinkedIn
-    // Structure : détection automatique car position variable
-    
+    // Résolution des colonnes PAR NOM d'en-tête via le résolveur central.
     const headers = rows[0] || [];
-    console.log('En-têtes trouvés (premiers 25):', headers.slice(0, 25));
-    
-    // Indices fixes des colonnes
-    const nomIndex = 8;           // Colonne I "Nom complet"
-    const telFixeIndex = 9;       // Colonne J  
-    const telPortableIndex = 10;  // Colonne K
-    const emailIndex = 14;        // Colonne O
-    const linkedinIndex = 16;     // Colonne Q
-    
-    // Détection automatique seulement pour la structure (position variable)
-    const structureIndex = headers.findIndex((header: string) => 
-      header && (
-        header.toLowerCase().includes('structure') ||
-        header.toLowerCase().includes('cabinet') ||
-        header.toLowerCase().includes('société') ||
-        header.toLowerCase().includes('firm')
-      )
-    );
-    
+    const idx = columnIndices(headers);
+    const nomIndex = idx.nom_complet;
+    const telPortableIndex = idx.telephone;
+    const emailIndex = idx.email;
+    const linkedinIndex = idx.linkedin;
+    const structureIndex = idx.cabinet;
+
     console.log('Indices des colonnes utilisées:', {
-      nom: `${nomIndex} (colonne I - "Nom complet")`,
-      telFixe: `${telFixeIndex} (colonne J)`,
-      telPortable: `${telPortableIndex} (colonne K)`,
-      email: `${emailIndex} (colonne O)`,
-      linkedin: `${linkedinIndex} (colonne Q)`,
-      structure: `${structureIndex} (détection auto)`
+      nom: nomIndex,
+      telPortable: telPortableIndex,
+      email: emailIndex,
+      linkedin: linkedinIndex,
+      structure: structureIndex,
     });
 
     // Skip header row et traiter les données
@@ -122,24 +88,12 @@ export async function GET(request: NextRequest) {
         if (!row || row.length === 0) return null;
 
         const nomComplet = nomIndex >= 0 ? (row[nomIndex] || '') : '';
-        const telFixe = telFixeIndex >= 0 ? (row[telFixeIndex] || '') : '';
+        // La nouvelle feuille ne fournit plus de colonne fixe dédiée.
+        const telFixe = '';
         const telPortable = telPortableIndex >= 0 ? (row[telPortableIndex] || '') : '';
         const email = emailIndex >= 0 ? (row[emailIndex] || '') : '';
         const structure = structureIndex >= 0 ? (row[structureIndex] || '') : '';
         const linkedin = linkedinIndex >= 0 ? (row[linkedinIndex] || '') : '';
-
-        // Debug log pour voir les données
-        if (index < 3) {
-          console.log(`Row ${index}:`, {
-            nomComplet,
-            telFixe,
-            telPortable,
-            email, 
-            structure,
-            linkedin,
-            rowLength: row.length
-          });
-        }
 
         return {
           nomComplet,

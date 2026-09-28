@@ -1,40 +1,39 @@
 import { google } from 'googleapis';
 import crypto from 'crypto';
-import { fetchAllSheetData } from './google-sheets';
-import { logClassifChange } from './sheet-log';
 import { globalCache } from './cache';
+import { logClassifChange, normalizeName } from './sheet-log';
+import { writeC123Classification } from './qualif-c123';
+import { parseServiceAccountKey } from './google-credentials';
 
-// Cache court de la base (A:BZ, ~38k lignes) partage par la page participante et
-// l'admin : evite un fetch complet a chaque ouverture de lien. Data de campagne
-// = pas de besoin temps reel ; TTL 2 min. Les reponses des participants ne sont
-// PAS mises en cache (lues fraiches a chaque fois).
-const SHEET_CACHE_KEY = 'qualif:sheetdata';
-async function getSheetData(): Promise<Awaited<ReturnType<typeof fetchAllSheetData>>> {
-  const cached = globalCache.get<Awaited<ReturnType<typeof fetchAllSheetData>>>(SHEET_CACHE_KEY);
-  if (cached) return cached;
-  const res = await fetchAllSheetData();
-  globalCache.set(SHEET_CACHE_KEY, res, 120000);
-  return res;
-}
-
-// Coeur de l'outil "Qualification des contacts" (interface swipe).
-// Tout est stocke dans le meme Google Sheet que le reste de l'outil KLB :
+// Coeur de l'outil "Qualification des contacts" (interface swipe) pour KLB —
+// variante par RESEAUX. Tout est stocke dans la NOUVELLE feuille source KLB :
 //  - un onglet de config `_QUALIF_ACCESS` : la liste des participants + leurs
-//    jetons (liens perso), la regle de liste, l'onglet cible et le curseur.
+//    jetons (liens perso), le reseau et l'onglet cible.
 //  - un onglet PAR participant (ex. « Qualif — Sabine ») : ses reponses
 //    (append/upsert par ID) = registre durable ET source de reprise.
 // Aucune donnee source n'est modifiee, aucune ecriture dans le `classement`
-// global : chaque choix est propre au participant (comme l'Apps Script).
+// global : chaque choix est propre au participant. La reconciliation (admin)
+// permet de reperer les profils classes ici mais pas encore reportes au doc.
 
-const SHEET_ID = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
+// Nouvelle feuille source KLB (lecture base + ecriture config/reponses).
+const SHEET_ID = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
+// Onglet source resolu par gid (immuable, survit aux renommages). Titre actuel :
+// « NEW - Base principale ».
+const SOURCE_TAB_GID = 1348323710;
+const SOURCE_TAB_FALLBACK = 'NEW - Base principale';
+
 const CONFIG_TAB = '_QUALIF_ACCESS';
 const CONFIG_HEADER = ['id', 'name', 'token', 'network', 'tabName', 'active', 'cursor', 'createdAt'];
 const ANSWER_HEADER = ['Horodatage', 'ID', 'Nom complet', 'Cabinet', 'LinkedIn', 'Cercle'];
 
+function getSheetId(): string {
+  return SHEET_ID;
+}
+
 // Reseaux disponibles (les 2 candidats). La liste d'un candidat = UNION de tous
-// ses canaux (LinkedIn + Outlook + Telephone). `select` = en-tetes dont le OR
-// definit l'appartenance ; `sources` = canaux affiches en badge ; `otherLinkedin`
-// = en-tete LinkedIn de l'AUTRE candidat (badge « aussi connu de … »).
+// ses canaux. `select` = en-tetes dont le OR (via `present`) definit
+// l'appartenance ; `sources` = canaux affiches en badge ; `otherLinkedin` =
+// en-tete LinkedIn de l'AUTRE candidat (badge « aussi connu de … »).
 export interface NetworkDef {
   label: string;
   select: string[];
@@ -45,59 +44,153 @@ export interface NetworkDef {
 
 export const NETWORKS: Record<string, NetworkDef> = {
   sabine: {
-    label: 'Sabine (SK)',
-    select: ['LINKEDIN SK', 'OUTLOOK SK', 'TÉLÉPHONE SK', 'TÉLÉPHONE SK V2'],
+    label: 'Sabine',
+    select: [
+      'LINKEDIN SK (source : SK)',
+      'OUTLOOK SK (source : SK)',
+      'TÉLÉPHONE SK (source : SK)',
+      'Avocats libanais (source : Sabine)',
+    ],
     sources: [
-      { label: 'LinkedIn', headers: ['LINKEDIN SK'] },
-      { label: 'Outlook', headers: ['OUTLOOK SK'] },
-      { label: 'Téléphone', headers: ['TÉLÉPHONE SK', 'TÉLÉPHONE SK V2'] },
+      { label: 'LinkedIn', headers: ['LINKEDIN SK (source : SK)'] },
+      { label: 'Outlook', headers: ['OUTLOOK SK (source : SK)'] },
+      { label: 'Téléphone', headers: ['TÉLÉPHONE SK (source : SK)'] },
+      { label: 'Avocats libanais', headers: ['Avocats libanais (source : Sabine)'] },
     ],
     otherLabel: 'Bernard',
-    otherLinkedin: 'LINKEDIN BLB',
+    otherLinkedin: 'LINKEDIN BLB (source : BLB)',
   },
   bernard: {
-    label: 'Bernard (BLB)',
-    select: ['LINKEDIN BLB', 'OUTLOOK BLB', 'TÉLÉPHONE BLB'],
+    label: 'Bernard',
+    select: [
+      'LINKEDIN BLB (source : BLB)',
+      'OUTLOOK BLB (source : BLB)',
+      'TÉLÉPHONE BLB (source : BLB)',
+    ],
     sources: [
-      { label: 'LinkedIn', headers: ['LINKEDIN BLB'] },
-      { label: 'Outlook', headers: ['OUTLOOK BLB'] },
-      { label: 'Téléphone', headers: ['TÉLÉPHONE BLB'] },
+      { label: 'LinkedIn', headers: ['LINKEDIN BLB (source : BLB)'] },
+      { label: 'Outlook', headers: ['OUTLOOK BLB (source : BLB)'] },
+      { label: 'Téléphone', headers: ['TÉLÉPHONE BLB (source : BLB)'] },
     ],
     otherLabel: 'Sabine',
-    otherLinkedin: 'LINKEDIN SK',
+    otherLinkedin: 'LINKEDIN SK (source : SK)',
   },
 };
 
+// --- Lecture de la base source (par NOM d'en-tete) --------------------------
+
+// On lit l'onglet source (resolu par gid) en A:CZ, on garde la ligne 0 comme
+// en-tetes et on construit un tableau d'objets { raw_data: { header: value } }
+// (keye par en-tete, colonnes a en-tete vide ignorees). But : pouvoir resoudre
+// n'importe quelle colonne par NOM. Cache 2 min via globalCache.
+export interface QualifRow {
+  raw_data: Record<string, string>;
+}
+const SHEET_CACHE_KEY = 'qualif:sheetdata';
+
+function getSheets() {
+  const credentials = parseServiceAccountKey();
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  return google.sheets({ version: 'v4', auth });
+}
+
+// Titre de l'onglet source resolu par gid (immuable, survit aux renommages),
+// mis en cache en memoire pour la duree de vie du process.
+let sourceTabTitle: string | null = null;
+async function getSourceTabTitle(sheets: ReturnType<typeof getSheets>): Promise<string> {
+  if (sourceTabTitle) return sourceTabTitle;
+  try {
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: getSheetId(),
+      fields: 'sheets.properties(sheetId,title)',
+    });
+    const match = (meta.data.sheets || []).find((s) => s.properties?.sheetId === SOURCE_TAB_GID);
+    sourceTabTitle = match?.properties?.title || SOURCE_TAB_FALLBACK;
+  } catch {
+    sourceTabTitle = SOURCE_TAB_FALLBACK;
+  }
+  return sourceTabTitle;
+}
+
+async function getSheetData(): Promise<QualifRow[]> {
+  const cached = globalCache.get<QualifRow[]>(SHEET_CACHE_KEY);
+  if (cached) return cached;
+  const sheets = getSheets();
+  const title = await getSourceTabTitle(sheets);
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: getSheetId(),
+    range: `${q(title)}!A:CZ`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length === 0) {
+    globalCache.set(SHEET_CACHE_KEY, [], 120000);
+    return [];
+  }
+  const headers = (rows[0] || []).map((h) => String(h ?? ''));
+  const out: QualifRow[] = rows.slice(1).map((r): QualifRow => {
+    const raw: Record<string, string> = {};
+    headers.forEach((h, i) => {
+      if (h.trim() === '') return; // ignore colonnes a en-tete vide
+      raw[h] = String(r[i] ?? '');
+    });
+    return { raw_data: raw };
+  });
+  globalCache.set(SHEET_CACHE_KEY, out, 120000);
+  return out;
+}
+
 // Lecture tolerante de raw_data par NOM d'en-tete (accents/casse/espaces ignores).
 // On resout les en-tetes UNE fois (index normalise -> cle exacte) pour eviter de
-// re-scanner toutes les colonnes a chaque ligne (la base fait des dizaines de
-// milliers de lignes).
+// re-scanner toutes les colonnes a chaque ligne.
 function normH(h: string): string {
   return String(h || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
-type Raw = Record<string, unknown> | undefined;
+type Raw = Record<string, string> | undefined;
 interface Resolver {
   val: (raw: Raw, header: string) => string;
   bool: (raw: Raw, header: string) => boolean;
+  present: (raw: Raw, header: string) => boolean;
+  headerStartingWith: (prefix: string) => string | null;
 }
+const EMPTY_FLAGS = new Set(['0', 'false', 'non', 'no']);
 function makeResolver(sample: Raw): Resolver {
   const idx: Record<string, string> = {};
   for (const k of Object.keys(sample || {})) {
     const n = normH(k);
     if (!(n in idx)) idx[n] = k;
   }
-  const val = (raw: Raw, header: string) => String((raw as Record<string, unknown>)?.[idx[normH(header)]] ?? '').trim();
+  const val = (raw: Raw, header: string) => String((raw as Record<string, string>)?.[idx[normH(header)]] ?? '').trim();
   return {
     val,
     bool: (raw, header) => {
       const s = val(raw, header).toLowerCase();
       return s === '1' || s === 'true' || s === 'oui' || s === 'x';
     },
+    // Valeur non-vide ET pas un flag negatif : les colonnes LinkedIn / reseaux
+    // contiennent des URLs ou des marqueurs, pas des flags '1'.
+    present: (raw, header) => {
+      const s = val(raw, header);
+      return s !== '' && !EMPTY_FLAGS.has(s.toLowerCase());
+    },
+    // Retrouve la cle exacte d'un en-tete dont la forme normalisee COMMENCE par
+    // `prefix` (deja normalise). Utile pour le classement source « C123 (agreges… ».
+    headerStartingWith: (prefix) => {
+      for (const [n, key] of Object.entries(idx)) {
+        if (n.startsWith(prefix)) return key;
+      }
+      return null;
+    },
   };
 }
 function inNetwork(R: Resolver, raw: Raw, net: NetworkDef): boolean {
-  return net.select.some((h) => R.bool(raw, h));
+  return net.select.some((h) => R.present(raw, h));
 }
+
+// Prefixe normalise du classement source « C123 (agreges… ».
+const SOURCE_CLASSEMENT_PREFIX = normH('c123 (agreges');
 
 export interface Participant {
   id: string;
@@ -121,17 +214,7 @@ export interface QualifContact {
   anneeSerment: string;
   linkedin: string;
   photo: string;
-  voted: boolean;
   circle: string; // choix precedent du participant ('' si aucun)
-}
-
-function getSheets() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}');
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  return google.sheets({ version: 'v4', auth });
 }
 
 function q(tab: string): string {
@@ -293,44 +376,42 @@ async function readAnswers(tabName: string): Promise<Map<string, { circle: strin
 
 // --- Construction de la liste d'un participant ------------------------------
 
-function isVoted(raw: Record<string, unknown> | undefined): boolean {
-  if (!raw) return false;
-  for (const [k, v] of Object.entries(raw)) {
-    if (/vote/i.test(k)) {
-      const val = String(v || '').trim().toLowerCase();
-      if (val === '1' || val === 'true' || val === 'oui' || val === 'x') return true;
-    }
-  }
-  return false;
-}
-
 export async function buildContacts(p: Participant): Promise<QualifContact[]> {
   const net = NETWORKS[p.network];
   if (!net) throw new Error('Reseau inconnu pour ce participant.');
-  const [{ data }, answers] = await Promise.all([getSheetData(), readAnswers(p.tabName)]);
+  const [data, answers] = await Promise.all([getSheetData(), readAnswers(p.tabName)]);
   const R = makeResolver(data[0]?.raw_data);
+  const sourceClassHeader = R.headerStartingWith(SOURCE_CLASSEMENT_PREFIX);
 
   const list = data
-    .filter((l) => inNetwork(R, l.raw_data, net))
-    .map((l): QualifContact => {
-      const id = String(l.prenomnom || l.nom_complet || '').trim();
+    .filter((l) => {
+      if (!inNetwork(R, l.raw_data, net)) return false;
+      // Exclure si l'avocat est deja classe dans la source (classement non-vide).
+      const sourceVal = sourceClassHeader ? R.val(l.raw_data, sourceClassHeader) : '';
+      return sourceVal.trim() === '';
+    })
+    .map((l): QualifContact | null => {
       const raw = l.raw_data;
+      const id = R.val(raw, 'prenom1particulenom');
+      if (!id) return null;
       const bracket = R.val(raw, 'Tranche taille cabinet');
+      const cabinet = R.present(raw, 'CABINET_NOM_COMMERCIAL')
+        ? R.val(raw, 'CABINET_NOM_COMMERCIAL')
+        : R.val(raw, 'ST_RAISON_SOCIALE');
       return {
         id,
-        name: l.nom_complet || l.prenomnom || 'Sans nom',
-        cabinet: l.cabinet || '',
+        name: R.val(raw, 'PRENOM1 PARTICULE NOM') || id,
+        cabinet,
         sizeBracket: bracket && !/non trouv/i.test(bracket) ? bracket : '',
-        origins: net.sources.filter((s) => s.headers.some((h) => R.bool(raw, h))).map((s) => s.label),
-        sharedWith: R.bool(raw, net.otherLinkedin) ? net.otherLabel : '',
-        anneeSerment: l.annee_serment ? String(l.annee_serment) : '',
-        linkedin: l.linkedin || '',
-        photo: l.photo_url || '',
-        voted: isVoted(raw),
+        origins: net.sources.filter((s) => s.headers.some((h) => R.present(raw, h))).map((s) => s.label),
+        sharedWith: R.present(raw, net.otherLinkedin) ? net.otherLabel : '',
+        anneeSerment: R.val(raw, 'ANNEE_SERMENT'),
+        linkedin: R.val(raw, 'LINKEDIN'),
+        photo: R.val(raw, 'URL_PDP'),
         circle: answers.get(id)?.circle || '',
       };
     })
-    .filter((c) => c.id !== '');
+    .filter((c): c is QualifContact => c !== null);
 
   list.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   return list;
@@ -345,7 +426,7 @@ export interface ParticipantStats extends Participant {
 export async function listWithStats(): Promise<ParticipantStats[]> {
   const participants = await readParticipants();
   if (participants.length === 0) return [];
-  const { data } = await getSheetData();
+  const data = await getSheetData();
   const R = makeResolver(data[0]?.raw_data);
   const out: ParticipantStats[] = [];
   for (const p of participants) {
@@ -362,10 +443,13 @@ export async function listWithStats(): Promise<ParticipantStats[]> {
   return out;
 }
 
-// NSP = « Ne connaît pas / sans classification » : choix explicite (distinct de
-// « Je passe » qui laisse vide). Ecrit dans l'onglet du participant, compte comme
-// traite (ne repasse pas dans « revoir les passees »).
-const VALID_CHOICES = new Set(['C1', 'C2', 'C3', 'Blacklist', 'NSP']);
+// NSP / « Neutre » = « Ne connaît pas / sans classification » : choix explicite
+// (distinct de « Je passe » qui laisse vide). Ecrit dans l'onglet du participant,
+// compte comme traite (ne repasse pas dans « revoir les passees »). Ces choix ne
+// sont JAMAIS reportes dans l'onglet « C123 agrégés » (voir NON_C123_CHOICES).
+const VALID_CHOICES = new Set(['C1', 'C2', 'C3', 'Blacklist', 'NSP', 'Neutre']);
+// Choix « sans classification » : jamais reportes dans « C123 agrégés ».
+const NON_C123_CHOICES = new Set(['NSP', 'Neutre']);
 
 export async function saveChoice(
   p: Participant,
@@ -405,4 +489,90 @@ export async function saveChoice(
     nouvelle: choice,
     utilisateur: p.name,
   });
+
+  // Ecriture directe dans « C123 agrégés » (sauf « Neutre » / « NSP », memorises
+  // cote onglet participant uniquement). La cle est UNIFORMISEE ici (Prénom Nom ->
+  // prenomnom), le canal est recalcule depuis la source. Best-effort : n'interrompt
+  // jamais l'action utilisateur.
+  if (!NON_C123_CHOICES.has(choice)) {
+    try {
+      const net = NETWORKS[p.network];
+      const data = await getSheetData();
+      const R = makeResolver(data[0]?.raw_data);
+      const raw = data.find((l) => R.val(l.raw_data, 'prenom1particulenom') === contact.id)?.raw_data;
+      const canaux = net && raw
+        ? net.sources.filter((s) => s.headers.some((h) => R.present(raw, h))).map((s) => s.label).join(', ')
+        : '';
+      await writeC123Classification({
+        prenomnom: normalizeName(contact.name),
+        cercle: choice,
+        candidat: p.name,
+        canaux,
+      });
+    } catch (e) {
+      console.warn('Ecriture C123 agrégés (best-effort) echouee:', e);
+    }
+  }
+}
+
+// --- Reconciliation avec le doc principal -----------------------------------
+
+// Pour chaque participant, compare ses reponses de swipe (C1/C2/C3/Blacklist ;
+// « Neutre » / « NSP » ignores) au classement SOURCE de l'avocat dans le doc
+// principal. Renvoie la liste des profils classes dans le swipe mais dont la
+// valeur source differe (donc PAS encore reportes dans le doc principal).
+export interface ReconcileEntry {
+  participant: string;
+  id: string;
+  name: string;
+  cabinet: string;
+  choice: string;
+  source: string;
+}
+
+export async function reconcileWithSource(): Promise<ReconcileEntry[]> {
+  const participants = await readParticipants();
+  if (participants.length === 0) return [];
+  const data = await getSheetData();
+  const R = makeResolver(data[0]?.raw_data);
+  const sourceClassHeader = R.headerStartingWith(SOURCE_CLASSEMENT_PREFIX);
+
+  // Index des lignes source par id (prenom1particulenom).
+  const byId = new Map<string, Raw>();
+  for (const l of data) {
+    const id = R.val(l.raw_data, 'prenom1particulenom');
+    if (id) byId.set(id, l.raw_data);
+  }
+
+  const out: ReconcileEntry[] = [];
+  for (const p of participants) {
+    let answers: Map<string, { circle: string; rowIndex: number }>;
+    try {
+      answers = await readAnswers(p.tabName);
+    } catch {
+      continue;
+    }
+    for (const [id, a] of answers) {
+      const choice = a.circle;
+      if (!['C1', 'C2', 'C3', 'Blacklist'].includes(choice)) continue; // ignore 'Neutre'/'NSP'/vide
+      const raw = byId.get(id);
+      const source = raw && sourceClassHeader ? R.val(raw, sourceClassHeader).trim() : '';
+      if (source !== choice) {
+        const cabinet = raw
+          ? (R.present(raw, 'CABINET_NOM_COMMERCIAL')
+              ? R.val(raw, 'CABINET_NOM_COMMERCIAL')
+              : R.val(raw, 'ST_RAISON_SOCIALE'))
+          : '';
+        out.push({
+          participant: p.name,
+          id,
+          name: raw ? R.val(raw, 'PRENOM1 PARTICULE NOM') || id : id,
+          cabinet,
+          choice,
+          source: source || '(vide)',
+        });
+      }
+    }
+  }
+  return out;
 }

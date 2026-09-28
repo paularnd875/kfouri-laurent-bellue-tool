@@ -1,14 +1,14 @@
 import { google } from 'googleapis';
-import { columnIndices } from './column-map';
+import { parseServiceAccountKey } from './google-credentials';
+import { columnIndices, MAIN_TAB, SOURCE_TAB_GID } from './column-map';
 
 // Configuration pour l'accès sécurisé au Google Sheet
-const SHEET_ID = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
-const RANGE = 'Base principale!A:BZ'; // Toutes les colonnes de A à BZ
+const SHEET_ID = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
 
 // Authentification via Service Account
 async function getAuthenticatedSheets() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}');
-  
+  const credentials = parseServiceAccountKey();
+
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
@@ -16,6 +16,39 @@ async function getAuthenticatedSheets() {
 
   const sheets = google.sheets({ version: 'v4', auth });
   return sheets;
+}
+
+// Cache memoire du titre de l'onglet source (resolu par gid, immuable). Evite un
+// spreadsheets.get a chaque appel. Fallback sur MAIN_TAB si le gid est introuvable.
+let sourceTabTitleCache: string | null = null;
+
+export async function getSourceTabTitle(
+  sheets: Awaited<ReturnType<typeof getAuthenticatedSheets>>
+): Promise<string> {
+  if (sourceTabTitleCache) return sourceTabTitleCache;
+  try {
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: SHEET_ID,
+      fields: 'sheets.properties(sheetId,title)',
+    });
+    const match = (meta.data.sheets || []).find(
+      (s) => s.properties?.sheetId === SOURCE_TAB_GID
+    );
+    sourceTabTitleCache = match?.properties?.title || MAIN_TAB;
+  } catch (e) {
+    console.warn('Resolution onglet par gid impossible, fallback MAIN_TAB:', e);
+    sourceTabTitleCache = MAIN_TAB;
+  }
+  return sourceTabTitleCache;
+}
+
+// Construit une plage A1 citee sur l'onglet source resolu par gid.
+export async function getSourceRange(
+  sheets: Awaited<ReturnType<typeof getAuthenticatedSheets>>,
+  suffix: string = 'A:CZ'
+): Promise<string> {
+  const title = await getSourceTabTitle(sheets);
+  return `'${title}'!${suffix}`;
 }
 
 // Interface pour les données du Google Sheet
@@ -30,13 +63,22 @@ export interface LawyerSheetData {
   linkedin?: string; // Colonne LinkedIn (URL du profil)
   email?: string;
   annee_serment?: number;
-  cabinet?: string;
-  
+  cabinet?: string; // raison sociale (cle technique de regroupement)
+  cabinet_nom_commercial?: string; // nom commercial (affichage)
+  cabinet_display?: string; // nom commercial si present, sinon raison sociale
+  statut_cabinet?: string; // mode d'exercice
+  xp?: string;
+  specialite?: string;
+  mandat?: string;
+  langue?: string;
+  nationalite?: string;
+  tranche_taille_cabinet?: string;
+
   // Colonnes importantes mentionnées
-  classement?: string; // Colonne AT - C1/C2/C3/Blacklist
-  linkedin_sabine?: boolean; // Colonne BH - Relations LinkedIn Sabine (1 si relation, 0 sinon)
-  linkedin_bernard?: boolean; // Colonne BI - Relations LinkedIn Bernard (1 si relation, 0 sinon) 
-  photo_url?: string; // Colonne BW - URL photo
+  classement?: string; // C1/C2/C3/Blacklist
+  linkedin_sabine?: boolean; // Relations LinkedIn Sabine (1 si relation, 0 sinon)
+  linkedin_bernard?: boolean; // Relations LinkedIn Bernard (1 si relation, 0 sinon)
+  photo_url?: string; // URL photo
   
   // Colonnes AX à BQ (étiquettes additionnelles)
   additional_tags?: { [key: string]: any };
@@ -54,11 +96,11 @@ export async function fetchAllSheetData(): Promise<{
 }> {
   try {
     const sheets = await getAuthenticatedSheets();
-    
-    // Récupérer les données
+
+    // Récupérer les données (onglet source résolu par gid, plage A:CZ)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: RANGE,
+      range: await getSourceRange(sheets, 'A:CZ'),
     });
 
     const rows = response.data.values;
@@ -88,11 +130,32 @@ export async function fetchAllSheetData(): Promise<{
       const prenomnom = at(row, 'prenomnom');
       lawyer.prenomnom = prenomnom;
       lawyer.nom_complet = at(row, 'nom_complet') || prenomnom;
-      lawyer.civilite = at(row, 'civilite');
-      lawyer.cabinet = at(row, 'cabinet');
-      lawyer.tel_fixe = at(row, 'tel_fixe');
+
+      // Civilité F/M : brute si présente, sinon dérivée de la salutation
+      // « Cher / chère » (Chère -> F, Cher -> M) car l'onglet source ne fournit
+      // pas toujours la lettre F/M directement.
+      const civBrut = at(row, 'civilite').trim();
+      const salut = at(row, 'civilite_salutation')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '') // enlève les accents (chère -> chere)
+        .trim().toLowerCase();
+      lawyer.civilite = civBrut || (salut.startsWith('chere') ? 'F' : salut.startsWith('cher') ? 'M' : '');
+
+      // Cabinet : `cabinet` = raison sociale (clé technique/regroupement).
+      // `cabinet_display` = nom commercial (plus lisible) si présent, sinon raison sociale.
+      const cabinetRaisonSociale = at(row, 'cabinet');
+      const cabinetNomCommercial = at(row, 'cabinet_nom_commercial');
+      lawyer.cabinet = cabinetRaisonSociale;
+      lawyer.cabinet_nom_commercial = cabinetNomCommercial;
+      lawyer.cabinet_display = cabinetNomCommercial || cabinetRaisonSociale;
+      lawyer.statut_cabinet = at(row, 'statut_cabinet');
+      lawyer.xp = at(row, 'xp');
+      lawyer.specialite = at(row, 'specialite');
+      lawyer.mandat = at(row, 'mandat');
+      lawyer.langue = at(row, 'langue');
+      lawyer.nationalite = at(row, 'nationalite');
+      lawyer.tranche_taille_cabinet = at(row, 'tranche_taille_cabinet');
       lawyer.tel_portable = at(row, 'telephone'); // clé 'telephone' = colonne "Numéro de portable"
-      lawyer.telephone = lawyer.tel_portable || lawyer.tel_fixe;
+      lawyer.telephone = lawyer.tel_portable;
       lawyer.linkedin = at(row, 'linkedin');
       lawyer.email = at(row, 'email');
 
@@ -132,7 +195,7 @@ export async function fetchSheetHeaders(): Promise<string[]> {
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: 'Base principale!1:1', // Seulement la première ligne
+      range: await getSourceRange(sheets, '1:1'), // Seulement la première ligne (onglet résolu par gid)
     });
 
     return response.data.values?.[0] || [];

@@ -1,11 +1,12 @@
 import { google } from 'googleapis';
+import { parseServiceAccountKey } from './google-credentials';
 
 // Journalise chaque changement de classement fait dans l'outil dans un onglet
 // dedie du Google Sheet (append-only). N'ecrit JAMAIS dans les donnees : onglet
 // separe cree automatiquement au premier usage.
 // Prerequis : le service account doit avoir l'acces "Editeur" sur la feuille.
 
-const SHEET_ID = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
+const SHEET_ID = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
 const TAB_NAME = 'Journal classifications outil';
 const HEADER = [
   'Horodatage',
@@ -22,7 +23,7 @@ const HEADER = [
 // Reproduit fidelement l'Apps Script uniformizeText : supprime ponctuation,
 // espaces, accents, chiffres et emojis, met en minuscules et tout colle.
 // Ex : "Jean Michel De Préssense" -> "jeanmicheldepressense"
-function normalizeName(input: string): string {
+export function normalizeName(input: string): string {
   let s = String(input || '');
   s = s.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()'"’‘]/g, ''); // ponctuation
   s = s.replace(/\s/g, ''); // espaces
@@ -37,7 +38,7 @@ function normalizeName(input: string): string {
 }
 
 function getWritableSheets() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || '{}');
+  const credentials = parseServiceAccountKey();
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'], // lecture/ecriture

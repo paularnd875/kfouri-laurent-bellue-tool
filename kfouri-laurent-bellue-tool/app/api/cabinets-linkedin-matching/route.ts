@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { parseServiceAccountKey } from '@/lib/google-credentials';
 import { globalCache } from '@/lib/cache';
 import { columnIndices } from '@/lib/column-map';
+import { getSourceRange } from '@/lib/google-sheets';
 
 // Interface pour les données de matching LinkedIn
 interface LinkedInMatch {
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
     let credentials;
     
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      credentials = parseServiceAccountKey();
     } else {
       credentials = {
         client_email: process.env.GOOGLE_CLIENT_EMAIL,
@@ -74,32 +76,13 @@ export async function GET(request: NextRequest) {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
-    
-    // D'abord, obtenir les informations sur les onglets pour voir les noms exacts
-    const spreadsheetInfo = await sheets.spreadsheets.get({
-      spreadsheetId,
-    });
-    
-    console.log('Onglets disponibles:', spreadsheetInfo.data.sheets?.map(s => s.properties?.title));
-    
-    // Trouver le bon nom d'onglet - utiliser "Base principale" qui contient les données
-    const resourcesSheet = spreadsheetInfo.data.sheets?.find(s => 
-      s.properties?.title?.toLowerCase().includes('base') ||
-      s.properties?.title?.toLowerCase().includes('principale') ||
-      s.properties?.title?.toLowerCase().includes('ressources') ||
-      s.properties?.title?.toLowerCase().includes('humaines')
-    );
-    
-    const sheetName = resourcesSheet?.properties?.title || 'Base principale';
-    console.log('Nom d\'onglet utilisé:', sheetName);
-    
-    // Toutes les colonnes (mapping par nom d'en-tête ensuite)
-    const range = `${sheetName}!A:BZ`;
+    const spreadsheetId = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
 
+    // Onglet source résolu par gid (immuable), toutes les colonnes A:CZ
+    // (mapping par nom d'en-tête ensuite).
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range,
+      range: await getSourceRange(sheets, 'A:CZ'),
     });
 
     const rows = response.data.values;

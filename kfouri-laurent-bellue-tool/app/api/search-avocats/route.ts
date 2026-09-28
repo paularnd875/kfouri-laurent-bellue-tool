@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { parseServiceAccountKey } from '@/lib/google-credentials';
 import { globalCache } from '@/lib/cache';
 import { columnIndices, etiquetteColumns } from '@/lib/column-map';
+import { getSourceRange } from '@/lib/google-sheets';
 
 // Interface pour un avocat avec toutes ses données
 interface Avocat {
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
     // Configuration Google Sheets
     let credentials;
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+      credentials = parseServiceAccountKey();
     } else {
       credentials = {
         client_email: process.env.GOOGLE_CLIENT_EMAIL,
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const spreadsheetId = '1e-xkI8LcsgbgefP2Lv9Ym4ZyCL-4VXHgGdVh6xLbtAw';
+    const spreadsheetId = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
 
     // Vérifier le cache pour les données complètes
     const cacheKey = 'all-avocats-data-v1';
@@ -54,34 +56,31 @@ export async function GET(request: NextRequest) {
     if (!avocats) {
       console.log('💾 Données avocats non trouvées en cache, récupération depuis Google Sheets...');
       
-      // Récupérer les en-têtes pour mapping dynamique
+      // Récupérer les en-têtes pour mapping dynamique (onglet source résolu par gid)
       const headersResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: "'Base principale'!1:1",
+        range: await getSourceRange(sheets, '1:1'),
       });
 
       const headers = headersResponse.data.values?.[0] || [];
 
-      // Mapping des colonnes par NOM d'en-tête (index de secours) via le résolveur central
+      // Mapping des colonnes par NOM d'en-tête via le résolveur central
       const idx = columnIndices(headers);
       const etiquettes = etiquetteColumns(headers);
       const columnMapping = {
         nom: idx.nom_complet,
-        telFixe: idx.tel_fixe,
         telPortable: idx.telephone,
         email: idx.email,
         linkedin: idx.linkedin,
         structure: idx.cabinet,
         classification: idx.classement,
         photo: idx.photo_url,
-        vote1T: idx.vote1T,
-        vote2T: idx.vote2T,
       };
 
-      // Récupérer toutes les données
+      // Récupérer toutes les données (onglet source résolu par gid, plage A:CZ)
       const dataResponse = await sheets.spreadsheets.values.get({
         spreadsheetId,
-        range: "'Base principale'!A:BZ",
+        range: await getSourceRange(sheets, 'A:CZ'),
       });
 
       const rows = dataResponse.data.values || [];
@@ -96,14 +95,16 @@ export async function GET(request: NextRequest) {
         const avocat: Avocat = {
           nom: row[columnMapping.nom] || '',
           email: row[columnMapping.email] || '',
-          telFixe: row[columnMapping.telFixe] || undefined,
+          // telFixe : la nouvelle feuille ne fournit plus de colonne fixe dédiée.
+          telFixe: undefined,
           telPortable: row[columnMapping.telPortable] || undefined,
           linkedin: row[columnMapping.linkedin] || undefined,
           photo: (row[columnMapping.photo] && row[columnMapping.photo] !== '#N/A') ? row[columnMapping.photo] : undefined,
           structure: row[columnMapping.structure] || 'Individuels',
           classification: row[columnMapping.classification] as 'C1' | 'C2' | 'C3' | 'Blacklist' || undefined,
-          vote1erTour: (row[columnMapping.vote1T] || '0') === '1',
-          vote2emeTour: (row[columnMapping.vote2T] || '0') === '1',
+          // Colonnes de vote absentes de la nouvelle feuille -> valeurs neutres.
+          vote1erTour: false,
+          vote2emeTour: false,
           etiquettes: {}
         };
 
