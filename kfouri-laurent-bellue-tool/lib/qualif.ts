@@ -49,13 +49,11 @@ export const NETWORKS: Record<string, NetworkDef> = {
       'LINKEDIN SK (source : SK)',
       'OUTLOOK SK (source : SK)',
       'TÉLÉPHONE SK (source : SK)',
-      'Avocats libanais (source : Sabine)',
     ],
     sources: [
       { label: 'LinkedIn', headers: ['LINKEDIN SK (source : SK)'] },
       { label: 'Outlook', headers: ['OUTLOOK SK (source : SK)'] },
       { label: 'Téléphone', headers: ['TÉLÉPHONE SK (source : SK)'] },
-      { label: 'Avocats libanais', headers: ['Avocats libanais (source : Sabine)'] },
     ],
     otherLabel: 'Bernard',
     otherLinkedin: 'LINKEDIN BLB (source : BLB)',
