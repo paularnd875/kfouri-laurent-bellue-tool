@@ -17,6 +17,8 @@ import {
   Users,
   RotateCcw,
   Pencil,
+  Search,
+  UserPlus,
 } from 'lucide-react';
 
 interface Contact {
@@ -31,6 +33,7 @@ interface Contact {
   photo: string;
   voted: boolean;
   circle: string;
+  currentClassement?: string;
 }
 
 type Choice = 'C1' | 'C2' | 'C3' | 'Blacklist' | 'NSP';
@@ -41,6 +44,14 @@ const CHOICES: { key: Choice; klass: string; title: string; sub: string }[] = [
   { key: 'C3', klass: 'contact', title: 'À convaincre', sub: 'Appeler ou solliciter (C3)' },
   { key: 'Blacklist', klass: 'exclude', title: 'À exclure', sub: 'Concurrent ou à écarter (Blacklist)' },
   { key: 'NSP', klass: 'unknown', title: 'Ne connaît pas', sub: 'Sans classification' },
+];
+
+// Choix proposes dans la recherche libre (pas de « Ne connaît pas »).
+const SEARCH_CHOICES: { key: Choice; klass: string; label: string }[] = [
+  { key: 'C1', klass: 'certain', label: 'C1' },
+  { key: 'C2', klass: 'probable', label: 'C2' },
+  { key: 'C3', klass: 'contact', label: 'C3' },
+  { key: 'Blacklist', klass: 'exclude', label: 'Blacklist' },
 ];
 
 const CHOICE_LABELS: Record<Choice, string> = {
@@ -72,6 +83,16 @@ export default function QualifPage() {
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
   const [leaving, setLeaving] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Vue active : swipe du paquet ou recherche libre.
+  const [view, setView] = useState<'pack' | 'search'>('pack');
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [results, setResults] = useState<Contact[]>([]);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeq = useRef(0);
 
   const total = contacts.length;
   const complete = cursor >= total;
@@ -179,6 +200,60 @@ export default function QualifPage() {
     reload('reviewDone', 'Aucune réponse à revoir', 'Vous pouvez modifier vos réponses');
   }
 
+  // --- Recherche libre --------------------------------------------------------
+
+  const runSearch = useCallback(async (raw: string) => {
+    const term = raw.trim();
+    if (term.length < 2) {
+      setResults([]);
+      setSearched(false);
+      setSearching(false);
+      return;
+    }
+    const seq = ++searchSeq.current;
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/qualif?token=${encodeURIComponent(token)}&q=${encodeURIComponent(term)}`, {
+        cache: 'no-store',
+      });
+      const data = await res.json();
+      if (seq !== searchSeq.current) return; // reponse perimee, ignorer
+      if (!res.ok) throw new Error(data.error || 'Recherche impossible');
+      setResults(Array.isArray(data.results) ? data.results : []);
+      setSearched(true);
+    } catch (e) {
+      if (seq !== searchSeq.current) return;
+      showToast(e instanceof Error ? e.message : 'Erreur', true);
+    } finally {
+      if (seq === searchSeq.current) setSearching(false);
+    }
+  }, [token, showToast]);
+
+  function onQueryChange(value: string) {
+    setQuery(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => runSearch(value), 300);
+  }
+
+  async function classify(target: Contact, choice: Choice) {
+    if (pendingId) return;
+    setPendingId(target.id);
+    try {
+      await post({
+        action: 'saveChoice',
+        contact: { id: target.id, name: target.name, cabinet: target.cabinet, linkedin: target.linkedin },
+        choice,
+        via: 'recherche',
+      });
+      setResults((prev) => prev.map((c) => (c.id === target.id ? { ...c, currentClassement: choice } : c)));
+      showToast(`Classé en ${choice}`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erreur', true);
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   const progress = total ? Math.min(100, (cursor / total) * 100) : 100;
   const specialties = contact ? [contact.anneeSerment ? `Serment ${contact.anneeSerment}` : ''].filter(Boolean).join(' · ') : '';
   const hasLinkedin = !!contact && /^https?:\/\//i.test(contact.linkedin || '');
@@ -227,7 +302,96 @@ export default function QualifPage() {
               <div className="qz-bar" style={{ width: `${progress}%` }} />
             </div>
 
-            {!complete && contact && (
+            <div className="qz-tabs" role="tablist" aria-label="Vue">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'pack'}
+                className={`qz-tab ${view === 'pack' ? 'qz-tab-active' : ''}`}
+                onClick={() => setView('pack')}
+              >
+                Mon paquet
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'search'}
+                className={`qz-tab ${view === 'search' ? 'qz-tab-active' : ''}`}
+                onClick={() => setView('search')}
+              >
+                <UserPlus size={15} /> Ajouter un contact
+              </button>
+            </div>
+
+            {view === 'search' && (
+              <section className="qz-search">
+                <div className="qz-search-box">
+                  <Search size={17} className="qz-search-ic" />
+                  <input
+                    className="qz-search-input"
+                    type="text"
+                    inputMode="search"
+                    autoComplete="off"
+                    placeholder="Rechercher un avocat par nom ou cabinet…"
+                    value={query}
+                    onChange={(e) => onQueryChange(e.target.value)}
+                    autoFocus
+                  />
+                  {searching && <Loader2 size={16} className="qz-spin" />}
+                </div>
+
+                {query.trim().length > 0 && query.trim().length < 2 && (
+                  <p className="qz-search-hint">Tapez au moins 2 caractères.</p>
+                )}
+
+                {searched && !searching && results.length === 0 && query.trim().length >= 2 && (
+                  <p className="qz-search-hint">Aucun résultat pour « {query.trim()} ».</p>
+                )}
+
+                <div className="qz-results">
+                  {results.map((r): React.ReactElement => {
+                    const busyRow = pendingId === r.id;
+                    return (
+                      <article className="qz-result" key={r.id}>
+                        <div className="qz-result-head">
+                          <div className="qz-result-id">
+                            <strong>{r.name}</strong>
+                            <span style={r.cabinet ? undefined : { opacity: 0.5 }}>
+                              {r.cabinet || 'Cabinet non renseigné'}
+                            </span>
+                          </div>
+                          {r.currentClassement ? (
+                            <span className="qz-badge">Déjà classé&nbsp;: {r.currentClassement}</span>
+                          ) : null}
+                        </div>
+                        <div className="qz-result-actions">
+                          {SEARCH_CHOICES.map((c): React.ReactElement => (
+                            <button
+                              key={c.key}
+                              type="button"
+                              className={`qz-mini qz-mini-${c.klass}`}
+                              disabled={busyRow}
+                              onClick={() => classify(r, c.key)}
+                            >
+                              {c.label}
+                            </button>
+                          ))}
+                          {busyRow && <Loader2 size={15} className="qz-spin" />}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="qz-nav">
+                  <button className="qz-text-btn" type="button" onClick={() => setView('pack')}>
+                    <ChevronLeft size={16} /> Retour au paquet
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {view === 'pack' && !complete && contact && (
               <section>
                 <article className={`qz-card ${leaving ? 'qz-leave' : 'qz-enter'}`} key={contact.id}>
                   <div className="qz-heading">
@@ -313,7 +477,7 @@ export default function QualifPage() {
               </section>
             )}
 
-            {complete && (
+            {view === 'pack' && complete && (
               <section className="qz-complete">
                 <div className="qz-orbit">
                   <span><Check size={30} strokeWidth={3} /></span>
@@ -422,6 +586,29 @@ const CSS = `
 @keyframes qzspin{to{transform:rotate(360deg);}}
 @keyframes qzenter{from{opacity:0;transform:translateX(18px) scale(.985);}to{opacity:1;transform:translateX(0) scale(1);}}
 @keyframes qzleave{to{opacity:0;transform:translateX(-18px) rotate(-.5deg) scale(.985);}}
+.qz-tabs{display:flex;gap:8px;margin:0 0 18px;}
+.qz-tab{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;color:#5b647a;border:1px solid rgba(86,71,185,.16);border-radius:99px;background:rgba(255,255,255,.7);cursor:pointer;font-weight:750;font-size:.84rem;}
+.qz-tab-active{color:#fff;border-color:transparent;background:#172033;box-shadow:0 8px 18px rgba(23,32,51,.16);}
+.qz-search-box{display:flex;align-items:center;gap:9px;padding:12px 15px;border:1px solid rgba(255,255,255,.8);border-radius:18px;background:rgba(255,255,255,.92);box-shadow:0 12px 34px rgba(38,44,70,.1);}
+.qz-search-ic{color:#5647b9;flex:0 0 auto;}
+.qz-search-input{flex:1;min-width:0;border:0;outline:none;background:transparent;color:#172033;font-size:.95rem;font-family:inherit;}
+.qz-search-input::placeholder{color:#9aa1b3;}
+.qz-search-hint{margin:14px 2px 0;color:#687086;font-size:.84rem;}
+.qz-results{display:grid;gap:10px;margin-top:14px;}
+.qz-result{padding:14px 15px;border:1px solid rgba(255,255,255,.8);border-radius:18px;background:rgba(255,255,255,.92);box-shadow:0 10px 28px rgba(38,44,70,.08);}
+.qz-result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.qz-result-id{display:grid;gap:2px;min-width:0;}
+.qz-result-id strong{font-size:.95rem;line-height:1.25;}
+.qz-result-id span{color:#687086;font-size:.8rem;line-height:1.3;}
+.qz-badge{flex:0 0 auto;padding:4px 10px;border-radius:99px;background:#efe9fb;color:#5b47a8;font-size:.72rem;font-weight:750;white-space:nowrap;}
+.qz-result-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:12px;}
+.qz-mini{padding:7px 14px;border:1px solid transparent;border-radius:12px;cursor:pointer;font-weight:800;font-size:.82rem;transition:transform 120ms ease,filter 120ms ease;}
+.qz-mini:active{transform:scale(.95);}
+.qz-mini:disabled{cursor:wait;filter:saturate(.55);opacity:.6;}
+.qz-mini-certain{color:#16785b;border-color:rgba(22,120,91,.2);background:#e9f6f0;}
+.qz-mini-probable{color:#3158c8;border-color:rgba(49,88,200,.2);background:#edf1ff;}
+.qz-mini-contact{color:#b75f15;border-color:rgba(183,95,21,.2);background:#fff2e5;}
+.qz-mini-exclude{color:#ad3d4b;border-color:rgba(173,61,75,.2);background:#ffedf0;}
 @media (min-width:650px){.qz-shell{padding-top:44px;}.qz-choices{grid-template-columns:1fr 1fr;}}
 @media (prefers-reduced-motion:reduce){.qz-spin,.qz-enter,.qz-leave{animation-duration:1ms;}}
 `;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { buildContacts, findByToken, saveChoice } from '@/lib/qualif';
+import { buildContacts, findByToken, saveChoice, searchContacts } from '@/lib/qualif';
 import type { Participant } from '@/lib/qualif';
 
 export const dynamic = 'force-dynamic';
@@ -25,9 +25,17 @@ async function resolve(token: string): Promise<{ p?: Participant; error?: NextRe
 
 export async function GET(request: Request) {
   try {
-    const token = new URL(request.url).searchParams.get('token') || '';
+    const sp = new URL(request.url).searchParams;
+    const token = sp.get('token') || '';
     const { p, error } = await resolve(token);
     if (error) return error;
+
+    // Mode recherche : cherche dans TOUTE la base (pas le paquet du participant).
+    const search = sp.get('q') ?? sp.get('search');
+    if (search !== null) {
+      return NextResponse.json({ results: await searchContacts(p!, search) });
+    }
+
     const all = await buildContacts(p!);
     const contacts = all.filter((c) => !c.circle);
     return NextResponse.json({
@@ -60,6 +68,7 @@ export async function POST(request: Request) {
           linkedin: String(contact.linkedin || ''),
         },
         String(body.choice || ''),
+        body.via ? String(body.via) : undefined,
       );
       return NextResponse.json({ ok: true });
     }

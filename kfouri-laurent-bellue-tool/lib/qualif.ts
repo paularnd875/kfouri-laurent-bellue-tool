@@ -213,6 +213,7 @@ export interface QualifContact {
   linkedin: string;
   photo: string;
   circle: string; // choix precedent du participant ('' si aucun)
+  currentClassement?: string; // classement source actuel (colonne « C123 (agreges… »), '' si vide
 }
 
 function q(tab: string): string {
@@ -415,6 +416,54 @@ export async function buildContacts(p: Participant): Promise<QualifContact[]> {
   return list;
 }
 
+// Normalisation simple pour la recherche (accents/casse ignores).
+function normSearch(s: string): string {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+// Recherche dans TOUTE la base (pas seulement le paquet du participant, pas de
+// filtre reseau ni classement). Renvoie jusqu'a 40 resultats tries par nom,
+// avec le classement source actuel (currentClassement) de chaque avocat.
+export async function searchContacts(p: Participant, query: string): Promise<QualifContact[]> {
+  const term = String(query || '').trim();
+  if (term.length < 2) return [];
+  const net = NETWORKS[p.network];
+  const [data, answers] = await Promise.all([getSheetData(), readAnswers(p.tabName)]);
+  const R = makeResolver(data[0]?.raw_data);
+  const sourceClassHeader = R.headerStartingWith(SOURCE_CLASSEMENT_PREFIX);
+  const needle = normSearch(term);
+
+  const list = data
+    .map((l): QualifContact | null => {
+      const raw = l.raw_data;
+      const id = R.val(raw, 'prenom1particulenom');
+      if (!id) return null;
+      const name = R.val(raw, 'PRENOM1 PARTICULE NOM') || id;
+      const cabinet = R.present(raw, 'CABINET_NOM_COMMERCIAL')
+        ? R.val(raw, 'CABINET_NOM_COMMERCIAL')
+        : R.val(raw, 'ST_RAISON_SOCIALE');
+      if (!normSearch(name).includes(needle) && !normSearch(cabinet).includes(needle)) return null;
+      const bracket = R.val(raw, 'Tranche taille cabinet');
+      return {
+        id,
+        name,
+        cabinet,
+        sizeBracket: bracket && !/non trouv/i.test(bracket) ? bracket : '',
+        origins: net ? net.sources.filter((s) => s.headers.some((h) => R.present(raw, h))).map((s) => s.label) : [],
+        sharedWith: net && R.present(raw, net.otherLinkedin) ? net.otherLabel : '',
+        anneeSerment: R.val(raw, 'ANNEE_SERMENT'),
+        linkedin: R.val(raw, 'LINKEDIN'),
+        photo: R.val(raw, 'URL_PDP'),
+        circle: answers.get(id)?.circle || '',
+        currentClassement: sourceClassHeader ? R.val(raw, sourceClassHeader).trim() : '',
+      };
+    })
+    .filter((c): c is QualifContact => c !== null);
+
+  list.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  return list.slice(0, 40);
+}
+
 export interface ParticipantStats extends Participant {
   networkLabel: string;
   total: number;
@@ -453,6 +502,7 @@ export async function saveChoice(
   p: Participant,
   contact: { id: string; name: string; cabinet: string; linkedin: string },
   choice: string,
+  via?: string,
 ): Promise<void> {
   if (!VALID_CHOICES.has(choice)) throw new Error('Choix invalide.');
   const sheets = getSheets();
@@ -498,9 +548,13 @@ export async function saveChoice(
       const data = await getSheetData();
       const R = makeResolver(data[0]?.raw_data);
       const raw = data.find((l) => R.val(l.raw_data, 'prenom1particulenom') === contact.id)?.raw_data;
-      const canaux = net && raw
-        ? net.sources.filter((s) => s.headers.some((h) => R.present(raw, h))).map((s) => s.label).join(', ')
-        : '';
+      // Provenance : 'Recherche' quand l'action vient de la recherche libre,
+      // sinon les canaux du candidat calcules depuis la source.
+      const canaux = via === 'recherche'
+        ? 'Recherche'
+        : net && raw
+          ? net.sources.filter((s) => s.headers.some((h) => R.present(raw, h))).map((s) => s.label).join(', ')
+          : '';
       await writeC123Classification({
         prenomnom: normalizeName(contact.name),
         cercle: choice,
