@@ -94,6 +94,12 @@ export default function QualifPage() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchSeq = useRef(0);
 
+  // File d'enregistrement en arriere-plan : le swipe avance INSTANTANEMENT et les
+  // ecritures (lentes cote Google Sheets) sont traitees une par une en fond
+  // (sequentiel = pas de collision d'ecriture). `pendingSaves` = nb en attente.
+  const saveChain = useRef<Promise<void>>(Promise.resolve());
+  const [pendingSaves, setPendingSaves] = useState(0);
+
   const total = contacts.length;
   const complete = cursor >= total;
   const contact = complete ? null : contacts[cursor];
@@ -123,6 +129,19 @@ export default function QualifPage() {
     if (token) load();
   }, [token, load]);
 
+  // Avertit si l'utilisateur ferme la page alors que des enregistrements sont
+  // encore en attente (evite de perdre des classements).
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (pendingSaves > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [pendingSaves]);
+
   const transitionTo = useCallback((next: number, msg?: string) => {
     setLeaving(true);
     setTimeout(() => {
@@ -145,22 +164,34 @@ export default function QualifPage() {
     return data;
   }
 
-  async function choose(choice: Choice) {
-    if (busy || !contact) return;
-    setBusy(true);
-    const next = cursor + 1;
-    try {
-      await post({
-        action: 'saveChoice',
-        contact: { id: contact.id, name: contact.name, cabinet: contact.cabinet, linkedin: contact.linkedin },
-        choice,
-      });
-      setContacts((prev) => prev.map((c, i) => (i === cursor ? { ...c, circle: choice } : c)));
-      transitionTo(next, 'Enregistré');
-    } catch (e) {
-      setBusy(false);
-      showToast(e instanceof Error ? e.message : 'Erreur', true);
-    }
+  // Enregistre en arriere-plan, sequentiellement (pas de collision d'ecriture).
+  function queueSave(body: Record<string, unknown>) {
+    setPendingSaves((n) => n + 1);
+    saveChain.current = saveChain.current.then(async () => {
+      try {
+        await post(body);
+      } catch {
+        showToast('Un enregistrement a échoué, réessaie ce contact', true);
+      } finally {
+        setPendingSaves((n) => Math.max(0, n - 1));
+      }
+    });
+  }
+
+  // Optimiste : on avance TOUT DE SUITE a la carte suivante, l'ecriture se fait
+  // en fond. Fini l'attente de ~13s qui donnait l'impression d'un blocage.
+  function choose(choice: Choice) {
+    if (leaving || !contact) return;
+    const cur = contact;
+    const curIndex = cursor;
+    setContacts((prev) => prev.map((c, i) => (i === curIndex ? { ...c, circle: choice } : c)));
+    transitionTo(curIndex + 1);
+    queueSave({
+      action: 'saveChoice',
+      contact: { id: cur.id, name: cur.name, cabinet: cur.cabinet, linkedin: cur.linkedin },
+      choice,
+      canaux: (cur.origins || []).join(', '),
+    });
   }
 
   // Navigation purement cote client (pas de curseur serveur).

@@ -69,6 +69,7 @@ export async function POST(request: Request) {
         },
         String(body.choice || ''),
         body.via ? String(body.via) : undefined,
+        typeof body.canaux === 'string' ? body.canaux : undefined,
       );
       return NextResponse.json({ ok: true });
     }

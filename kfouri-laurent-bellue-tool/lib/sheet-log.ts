@@ -37,13 +37,17 @@ export function normalizeName(input: string): string {
   return s.toLowerCase();
 }
 
+// Client Sheets memoise (par process) pour reutiliser l'auth + le jeton OAuth.
+let writableSheetsClient: ReturnType<typeof google.sheets> | null = null;
 function getWritableSheets() {
+  if (writableSheetsClient) return writableSheetsClient;
   const credentials = parseServiceAccountKey();
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'], // lecture/ecriture
   });
-  return google.sheets({ version: 'v4', auth });
+  writableSheetsClient = google.sheets({ version: 'v4', auth });
+  return writableSheetsClient;
 }
 
 // Cache par instance : evite un spreadsheets.get a chaque appel.

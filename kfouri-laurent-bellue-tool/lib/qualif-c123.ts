@@ -29,13 +29,17 @@ function getSheetId(): string {
   return SHEET_ID;
 }
 
+// Client Sheets memoise (par process) pour reutiliser l'auth + le jeton OAuth.
+let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 function getSheets() {
+  if (sheetsClient) return sheetsClient;
   const credentials = parseServiceAccountKey();
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
-  return google.sheets({ version: 'v4', auth });
+  sheetsClient = google.sheets({ version: 'v4', auth });
+  return sheetsClient;
 }
 
 function q(tab: string): string {

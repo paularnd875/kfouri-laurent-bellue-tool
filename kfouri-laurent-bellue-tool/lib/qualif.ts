@@ -86,13 +86,18 @@ export interface QualifRow {
 }
 const SHEET_CACHE_KEY = 'qualif:sheetdata';
 
+// Client Sheets memoise (par process) : eviter de recreer une auth + refaire un
+// echange de jeton OAuth a CHAQUE appel (gros cout cache sur le chemin chaud).
+let sheetsClient: ReturnType<typeof google.sheets> | null = null;
 function getSheets() {
+  if (sheetsClient) return sheetsClient;
   const credentials = parseServiceAccountKey();
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
-  return google.sheets({ version: 'v4', auth });
+  sheetsClient = google.sheets({ version: 'v4', auth });
+  return sheetsClient;
 }
 
 // Titre de l'onglet source resolu par gid (immuable, survit aux renommages),
@@ -225,7 +230,13 @@ async function tabExists(sheets: ReturnType<typeof getSheets>, title: string): P
   return (meta.data.sheets || []).some((s) => s.properties?.title === title);
 }
 
+// Cache des onglets deja verifies (par process) : ensureTab faisait 2 appels
+// Google Sheets (metadata + reecriture en-tete) A CHAQUE appel, et il est invoque
+// a chaque findByToken / readAnswers / saveChoice. On ne le fait donc qu'UNE fois
+// par onglet et par instance -> gros gain de latence sur le chemin chaud.
+const ensuredTabs = new Set<string>();
 async function ensureTab(sheets: ReturnType<typeof getSheets>, title: string, header: string[]): Promise<void> {
+  if (ensuredTabs.has(title)) return;
   if (!(await tabExists(sheets, title))) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SHEET_ID,
@@ -238,6 +249,7 @@ async function ensureTab(sheets: ReturnType<typeof getSheets>, title: string, he
     valueInputOption: 'RAW',
     requestBody: { values: [header] },
   });
+  ensuredTabs.add(title);
 }
 
 function newToken(): string {
@@ -503,6 +515,7 @@ export async function saveChoice(
   contact: { id: string; name: string; cabinet: string; linkedin: string },
   choice: string,
   via?: string,
+  canauxFromClient?: string,
 ): Promise<void> {
   if (!VALID_CHOICES.has(choice)) throw new Error('Choix invalide.');
   const sheets = getSheets();
@@ -510,60 +523,79 @@ export async function saveChoice(
   const horodatage = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
   const previous = answers.get(contact.id)?.circle || '';
   const row = [horodatage, contact.id, contact.name, contact.cabinet, contact.linkedin, choice];
-
   const existing = answers.get(contact.id);
-  if (existing) {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `${q(p.tabName)}!A${existing.rowIndex}:F${existing.rowIndex}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [row] },
-    });
-  } else {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: `${q(p.tabName)}!A1`,
-      valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [row] },
-    });
-  }
 
-  // Journal global (best-effort) : attribue au participant.
-  await logClassifChange({
-    nom: contact.name,
-    structure: contact.cabinet,
-    ancienne: previous,
-    nouvelle: choice,
-    utilisateur: p.name,
-  });
+  // Les 3 ecritures sont independantes -> on les lance EN PARALLELE pour reduire
+  // la latence percue (chaque appel Google Sheets fait un aller-retour reseau).
+  // Chacune est best-effort (allSettled) : une qui echoue n'empeche pas les autres.
+  const writes: Promise<unknown>[] = [];
 
-  // Ecriture directe dans « C123 agrégés » (sauf « Neutre » / « NSP », memorises
-  // cote onglet participant uniquement). La cle est UNIFORMISEE ici (Prénom Nom ->
-  // prenomnom), le canal est recalcule depuis la source. Best-effort : n'interrompt
-  // jamais l'action utilisateur.
+  // 1) Onglet du participant (registre + reprise).
+  writes.push(
+    existing
+      ? sheets.spreadsheets.values.update({
+          spreadsheetId: SHEET_ID,
+          range: `${q(p.tabName)}!A${existing.rowIndex}:F${existing.rowIndex}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [row] },
+        })
+      : sheets.spreadsheets.values.append({
+          spreadsheetId: SHEET_ID,
+          range: `${q(p.tabName)}!A1`,
+          valueInputOption: 'USER_ENTERED',
+          insertDataOption: 'INSERT_ROWS',
+          requestBody: { values: [row] },
+        }),
+  );
+
+  // 2) Journal global (best-effort) : attribue au participant.
+  writes.push(
+    logClassifChange({
+      nom: contact.name,
+      structure: contact.cabinet,
+      ancienne: previous,
+      nouvelle: choice,
+      utilisateur: p.name,
+    }),
+  );
+
+  // 3) Ecriture directe dans « C123 agrégés » (sauf « Neutre » / « NSP », memorises
+  // cote onglet participant uniquement). La provenance (canaux) est fournie par le
+  // client (origines de la carte) ou 'Recherche' : on evite ainsi de relire toute la
+  // base (gain majeur de latence). Repli : si le client n'a pas fourni les canaux
+  // (ancien client), on les recalcule depuis la source (chemin lent).
   if (!NON_C123_CHOICES.has(choice)) {
-    try {
-      const net = NETWORKS[p.network];
-      const data = await getSheetData();
-      const R = makeResolver(data[0]?.raw_data);
-      const raw = data.find((l) => R.val(l.raw_data, 'prenom1particulenom') === contact.id)?.raw_data;
-      // Provenance : 'Recherche' quand l'action vient de la recherche libre,
-      // sinon les canaux du candidat calcules depuis la source.
-      const canaux = via === 'recherche'
-        ? 'Recherche'
-        : net && raw
+    let canaux: string;
+    if (via === 'recherche') {
+      canaux = 'Recherche';
+    } else if (canauxFromClient !== undefined) {
+      canaux = canauxFromClient;
+    } else {
+      try {
+        const net = NETWORKS[p.network];
+        const data = await getSheetData();
+        const R = makeResolver(data[0]?.raw_data);
+        const raw = data.find((l) => R.val(l.raw_data, 'prenom1particulenom') === contact.id)?.raw_data;
+        canaux = net && raw
           ? net.sources.filter((s) => s.headers.some((h) => R.present(raw, h))).map((s) => s.label).join(', ')
           : '';
-      await writeC123Classification({
+      } catch {
+        canaux = '';
+      }
+    }
+    writes.push(
+      writeC123Classification({
         prenomnom: normalizeName(contact.name),
         cercle: choice,
         candidat: p.name,
         canaux,
-      });
-    } catch (e) {
-      console.warn('Ecriture C123 agrégés (best-effort) echouee:', e);
-    }
+      }),
+    );
+  }
+
+  const results = await Promise.allSettled(writes);
+  for (const r of results) {
+    if (r.status === 'rejected') console.warn('saveChoice: une ecriture a echoue (best-effort):', r.reason);
   }
 }
 
