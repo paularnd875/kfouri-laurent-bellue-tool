@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ArrowRight,
   ExternalLink,
-  Star,
   HelpCircle,
   Loader2,
   Building2,
@@ -31,7 +30,6 @@ interface Contact {
   anneeSerment: string;
   linkedin: string;
   photo: string;
-  voted: boolean;
   circle: string;
   currentClassement?: string;
 }
@@ -116,7 +114,12 @@ export default function QualifPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erreur inconnue.');
       setParticipant(data.participant || '');
-      setContacts(Array.isArray(data.contacts) ? data.contacts : []);
+      // Exclut les contacts deja classes localement mais pas encore confirmes au
+      // serveur (sauvegardes d'une session precedente) -> plus de "revient au debut".
+      const list = Array.isArray(data.contacts) ? data.contacts : [];
+      let pendingIds = new Set<string>();
+      try { pendingIds = new Set(Object.keys(JSON.parse(localStorage.getItem(`klbq_pending_${token}`) || '{}'))); } catch { /* ignore */ }
+      setContacts(pendingIds.size ? list.filter((c: { id: string }) => !pendingIds.has(c.id)) : list);
       setCursor(0);
       setStatus('ready');
     } catch (e) {
@@ -142,6 +145,35 @@ export default function QualifPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [pendingSaves]);
 
+  // Au montage : rejoue en arriere-plan les sauvegardes locales non confirmees
+  // (best-effort). Retiree de la file locale a la reussite ; sinon re-tentee au
+  // prochain chargement. Garantit qu'aucun classement n'est perdu a la fermeture.
+  useEffect(() => {
+    let pending: Record<string, Record<string, unknown>> = {};
+    try { pending = JSON.parse(localStorage.getItem(`klbq_pending_${token}`) || '{}'); } catch { return; }
+    const ids = Object.keys(pending);
+    if (!ids.length) return;
+    for (const id of ids) {
+      const body = pending[id];
+      setPendingSaves((n) => n + 1);
+      saveChain.current = saveChain.current.then(async () => {
+        try {
+          const r = await fetch('/api/qualif', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, ...body }),
+          });
+          if (r.ok) removePendingLocal(id);
+        } catch {
+          /* reste en attente, re-tente au prochain chargement */
+        } finally {
+          setPendingSaves((n) => Math.max(0, n - 1));
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
   const transitionTo = useCallback((next: number, msg?: string) => {
     setLeaving(true);
     setTimeout(() => {
@@ -164,12 +196,32 @@ export default function QualifPage() {
     return data;
   }
 
+  // --- Persistance locale (anti-perte a la fermeture, surtout mobile) ---
+  // Chaque choix est ecrit en localStorage AVANT l'envoi reseau : instantane et
+  // survit a la fermeture de l'appli. Retire a la confirmation serveur, rejoue au
+  // chargement suivant. C'est ce qui empeche le "ca revient au debut".
+  const pendingKey = `klbq_pending_${token}`;
+  function readPendingMap(): Record<string, Record<string, unknown>> {
+    try { return JSON.parse(localStorage.getItem(pendingKey) || '{}'); } catch { return {}; }
+  }
+  function setPendingMap(m: Record<string, Record<string, unknown>>) {
+    try { localStorage.setItem(pendingKey, JSON.stringify(m)); } catch { /* quota/indispo */ }
+  }
+  function addPendingLocal(id: string, body: Record<string, unknown>) {
+    const m = readPendingMap(); m[id] = body; setPendingMap(m);
+  }
+  function removePendingLocal(id: string) {
+    const m = readPendingMap(); delete m[id]; setPendingMap(m);
+  }
+
   // Enregistre en arriere-plan, sequentiellement (pas de collision d'ecriture).
-  function queueSave(body: Record<string, unknown>) {
+  // Retire de la file locale a la confirmation serveur.
+  function queueSave(id: string, body: Record<string, unknown>) {
     setPendingSaves((n) => n + 1);
     saveChain.current = saveChain.current.then(async () => {
       try {
         await post(body);
+        removePendingLocal(id);
       } catch {
         showToast('Un enregistrement a échoué, réessaie ce contact', true);
       } finally {
@@ -186,12 +238,14 @@ export default function QualifPage() {
     const curIndex = cursor;
     setContacts((prev) => prev.map((c, i) => (i === curIndex ? { ...c, circle: choice } : c)));
     transitionTo(curIndex + 1);
-    queueSave({
+    const body = {
       action: 'saveChoice',
       contact: { id: cur.id, name: cur.name, cabinet: cur.cabinet, linkedin: cur.linkedin },
       choice,
       canaux: (cur.origins || []).join(', '),
-    });
+    };
+    addPendingLocal(cur.id, body); // survit a la fermeture de l'appli
+    queueSave(cur.id, body);
   }
 
   // Navigation purement cote client (pas de curseur serveur).
@@ -431,11 +485,6 @@ export default function QualifPage() {
                       <img className="qz-photo" src={contact.photo} alt="" loading="eager" decoding="async" />
                     ) : null}
                     <h2>{contact.name}</h2>
-                    {contact.voted && (
-                      <span className="qz-voted" title="A voté">
-                        <Star size={13} fill="currentColor" />
-                      </span>
-                    )}
                   </div>
 
                   <div className="qz-details">
@@ -564,7 +613,6 @@ const CSS = `
 .qz-heading{display:flex;align-items:center;justify-content:center;gap:13px;}
 .qz-photo{width:48px;height:48px;flex:0 0 48px;object-fit:cover;border:2px solid #fff;border-radius:50%;background:#f1eee8;box-shadow:0 6px 16px rgba(23,32,51,.14);}
 .qz-card h2{font-size:clamp(1.55rem,7vw,2.15rem);line-height:1.08;letter-spacing:-.04em;}
-.qz-voted{display:grid;width:25px;height:25px;flex:0 0 25px;place-items:center;color:#a86f20;border:1px solid rgba(178,116,36,.2);border-radius:50%;background:#fff4d8;}
 .qz-details{display:grid;gap:7px;margin-top:22px;text-align:left;}
 .qz-row{display:grid;grid-template-columns:24px 1fr;gap:7px;align-items:start;}
 .qz-ic{color:#5647b9;text-align:center;font-size:.8rem;line-height:1.4;}

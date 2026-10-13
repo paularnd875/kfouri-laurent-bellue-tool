@@ -15,9 +15,11 @@ interface Avocat {
   photo?: string;
   structure: string;
   classification?: 'C1' | 'C2' | 'C3' | 'Blacklist';
-  vote1erTour: boolean;
-  vote2emeTour: boolean;
   etiquettes: { [key: string]: boolean };
+  // Champs additionnels utilises par les nouveaux filtres
+  statutCabinet?: string; // mode d'exercice (Individuel/Collaborateur/Associe)
+  anneeSerment?: string;  // annee de serment (texte brut, parse a la demande)
+  tailleCabinet?: string; // tranche taille cabinet (2-5, 5-25, ...)
 }
 
 export async function GET(request: NextRequest) {
@@ -29,6 +31,19 @@ export async function GET(request: NextRequest) {
     const classification = searchParams.get('classification');
     const etiquette = searchParams.get('etiquette');
     const sortBy = searchParams.get('sortBy') || 'nom';
+    // Nouveaux filtres : mode d'exercice (CSV), bornes annee de serment, taille cabinet (CSV)
+    const modeExerciceParam = searchParams.get('modeExercice');
+    const modeExercice = modeExerciceParam
+      ? modeExerciceParam.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const sermentMinParam = searchParams.get('sermentMin');
+    const sermentMaxParam = searchParams.get('sermentMax');
+    const sermentMin = sermentMinParam ? parseInt(sermentMinParam, 10) : null;
+    const sermentMax = sermentMaxParam ? parseInt(sermentMaxParam, 10) : null;
+    const tailleCabinetParam = searchParams.get('tailleCabinet');
+    const tailleCabinet = tailleCabinetParam
+      ? tailleCabinetParam.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
 
     // Configuration Google Sheets
     let credentials;
@@ -50,7 +65,7 @@ export async function GET(request: NextRequest) {
     const spreadsheetId = '12mDu_ceWutd4TqCaX0AJ81rtR5v04tlx8rWxO3o20z0';
 
     // Vérifier le cache pour les données complètes
-    const cacheKey = 'all-avocats-data-v1';
+    const cacheKey = 'all-avocats-data-v2';
     let avocats = globalCache.get<Avocat[]>(cacheKey);
 
     if (!avocats) {
@@ -75,6 +90,9 @@ export async function GET(request: NextRequest) {
         structure: idx.cabinet,
         classification: idx.classement,
         photo: idx.photo_url,
+        statutCabinet: idx.statut_cabinet,
+        anneeSerment: idx.annee_serment,
+        tailleCabinet: idx.tranche_taille_cabinet,
       };
 
       // Récupérer toutes les données (onglet source résolu par gid, plage A:CZ)
@@ -102,10 +120,10 @@ export async function GET(request: NextRequest) {
           photo: (row[columnMapping.photo] && row[columnMapping.photo] !== '#N/A') ? row[columnMapping.photo] : undefined,
           structure: row[columnMapping.structure] || 'Individuels',
           classification: row[columnMapping.classification] as 'C1' | 'C2' | 'C3' | 'Blacklist' || undefined,
-          // Colonnes de vote absentes de la nouvelle feuille -> valeurs neutres.
-          vote1erTour: false,
-          vote2emeTour: false,
-          etiquettes: {}
+          etiquettes: {},
+          statutCabinet: row[columnMapping.statutCabinet] || undefined,
+          anneeSerment: row[columnMapping.anneeSerment] || undefined,
+          tailleCabinet: row[columnMapping.tailleCabinet] || undefined,
         };
 
         // Étiquettes (soutiens) détectées par nom d'en-tête, robuste au réordonnancement
@@ -148,8 +166,34 @@ export async function GET(request: NextRequest) {
 
     // Filtre par étiquette
     if (etiquette) {
-      filteredAvocats = filteredAvocats.filter(avocat => 
+      filteredAvocats = filteredAvocats.filter(avocat =>
         avocat.etiquettes[etiquette] === true
+      );
+    }
+
+    // Filtre par mode d'exercice (OR interne). La valeur absente ne matche
+    // jamais quand le filtre est actif.
+    if (modeExercice.length > 0) {
+      filteredAvocats = filteredAvocats.filter(avocat =>
+        !!avocat.statutCabinet && modeExercice.includes(avocat.statutCabinet)
+      );
+    }
+
+    // Filtre par annee de serment (bornes min/max inclusives sur l'entier parse)
+    if (sermentMin !== null || sermentMax !== null) {
+      filteredAvocats = filteredAvocats.filter(avocat => {
+        const annee = parseInt(avocat.anneeSerment || '', 10);
+        if (isNaN(annee)) return false;
+        if (sermentMin !== null && annee < sermentMin) return false;
+        if (sermentMax !== null && annee > sermentMax) return false;
+        return true;
+      });
+    }
+
+    // Filtre par taille de cabinet (OR interne)
+    if (tailleCabinet.length > 0) {
+      filteredAvocats = filteredAvocats.filter(avocat =>
+        !!avocat.tailleCabinet && tailleCabinet.includes(avocat.tailleCabinet)
       );
     }
 

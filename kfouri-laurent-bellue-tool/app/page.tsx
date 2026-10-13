@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Mail, Phone, ExternalLink, ChevronDown, ChevronUp, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
+import { Phone, ExternalLink, ChevronDown, ChevronUp, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
 import MailButton from '@/components/MailButton';
 import MailPrefSelector from '@/components/MailPrefSelector';
 
@@ -17,8 +17,6 @@ interface Avocat {
   photo?: string;
   structure: string;
   classification?: 'C1' | 'C2' | 'C3' | 'Blacklist';
-  vote1erTour: boolean;
-  vote2emeTour: boolean;
   etiquettes: { [key: string]: boolean };
 }
 
@@ -26,11 +24,6 @@ interface Avocat {
 interface CabinetData {
   nom: string;
   effectif: number;
-  votants1T: number;
-  tauxVote1T: number;
-  votants2T: number;
-  tauxVote2T: number;
-  moyenneVote: number;
   avocats: Avocat[];
 }
 
@@ -87,9 +80,32 @@ export default function HomePage() {
     ventresMous: false,
     classification: '',
     etiquette: '',
+    // Mode d'exercice : selection multiple (OR interne). Vide = pas de filtre.
+    modeExercice: [] as string[],
+    // Annee de serment : bornes min/max. Chaine vide = borne non appliquee.
+    sermentMin: '',
+    sermentMax: '',
+    // Taille de cabinet : selection multiple (OR interne). Vide = pas de filtre.
+    tailleCabinet: [] as string[],
     sortBy: searchMode === 'cabinets' ? 'effectif' : 'nom',
     sortOrder: searchMode === 'cabinets' ? 'desc' : 'asc'
   });
+
+  // Valeurs fixes autorisees pour les selections multiples
+  const MODE_EXERCICE_OPTIONS = ['Individuel', 'Collaborateur', 'Associé'];
+  const TAILLE_CABINET_OPTIONS = ['2-5', '5-25', '25-50', '50&+'];
+
+  // Bascule une valeur dans une selection multiple (ajoute/retire)
+  const toggleMultiFilter = (key: 'modeExercice' | 'tailleCabinet', value: string) => {
+    setFilters(prev => {
+      const current = prev[key];
+      const next = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      return { ...prev, [key]: next };
+    });
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
 
   // États UI
   const [expandedCabinets, setExpandedCabinets] = useState<Set<string>>(new Set());
@@ -157,6 +173,21 @@ export default function HomePage() {
       if (filters.etiquette) {
         params.append('etiquette', filters.etiquette);
       }
+      // Mode d'exercice : selection multiple encodee en CSV
+      if (filters.modeExercice.length > 0) {
+        params.append('modeExercice', filters.modeExercice.join(','));
+      }
+      // Annee de serment : bornes min/max (ignorees si vides)
+      if (filters.sermentMin.trim()) {
+        params.append('sermentMin', filters.sermentMin.trim());
+      }
+      if (filters.sermentMax.trim()) {
+        params.append('sermentMax', filters.sermentMax.trim());
+      }
+      // Taille de cabinet : selection multiple encodee en CSV
+      if (filters.tailleCabinet.length > 0) {
+        params.append('tailleCabinet', filters.tailleCabinet.join(','));
+      }
 
       const response = await fetch(`${url}?${params}`);
       const result: ApiResponse = await response.json();
@@ -197,6 +228,10 @@ export default function HomePage() {
       ventresMous: false,
       classification: '',
       etiquette: '',
+      modeExercice: [],
+      sermentMin: '',
+      sermentMax: '',
+      tailleCabinet: [],
       sortBy: searchMode === 'cabinets' ? 'effectif' : 'nom',
       sortOrder: searchMode === 'cabinets' ? 'desc' : 'asc'
     });
@@ -379,32 +414,6 @@ export default function HomePage() {
               )}
             </div>
             
-            {/* Enveloppes de vote à gauche des contacts */}
-            <div className="flex items-center space-x-6 mr-6">
-              {/* Système d'enveloppes pour les votes */}
-              <div className="flex items-center space-x-3">
-                {/* Enveloppe 1er Tour */}
-                <div className="flex flex-col items-center">
-                  <div title={`Vote 1er Tour: ${avocat.vote1erTour ? 'Voté' : 'N\'a pas voté'}`}>
-                    <Mail 
-                      className={`w-5 h-5 ${avocat.vote1erTour ? 'text-green-600' : 'text-red-500'}`}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 mt-1">1T</span>
-                </div>
-                
-                {/* Enveloppe 2ème Tour */}
-                <div className="flex flex-col items-center">
-                  <div title={`Vote 2ème Tour: ${avocat.vote2emeTour ? 'Voté' : 'N\'a pas voté'}`}>
-                    <Mail 
-                      className={`w-5 h-5 ${avocat.vote2emeTour ? 'text-green-600' : 'text-red-500'}`}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 mt-1">2T</span>
-                </div>
-              </div>
-            </div>
-
             {/* Contact */}
             <div className="flex items-center space-x-2">
               {avocat.email && (
@@ -684,6 +693,75 @@ export default function HomePage() {
                       ))}
                     </select>
                   </div>
+
+                  {/* Mode d'exercice (selection multiple) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Mode d&apos;exercice
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {MODE_EXERCICE_OPTIONS.map(option => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => toggleMultiFilter('modeExercice', option)}
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            filters.modeExercice.includes(option)
+                              ? 'border-blue-500 bg-blue-50 text-blue-600'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Annee de serment (de ... a ...) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Année de serment
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={filters.sermentMin}
+                        onChange={(e) => setFilters(prev => ({ ...prev, sermentMin: e.target.value }))}
+                        placeholder="de"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                      <input
+                        type="number"
+                        value={filters.sermentMax}
+                        onChange={(e) => setFilters(prev => ({ ...prev, sermentMax: e.target.value }))}
+                        placeholder="à"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Taille de cabinet (selection multiple) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Taille de cabinet
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {TAILLE_CABINET_OPTIONS.map(option => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => toggleMultiFilter('tailleCabinet', option)}
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                            filters.tailleCabinet.includes(option)
+                              ? 'border-blue-500 bg-blue-50 text-blue-600'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-between items-center">
@@ -730,9 +808,6 @@ export default function HomePage() {
                     <>
                       <option value="effectif">Effectif</option>
                       <option value="nom">Nom</option>
-                      <option value="tauxVote1T">Taux vote 1T</option>
-                      <option value="tauxVote2T">Taux vote 2T</option>
-                      <option value="moyenneVote">Moyenne vote</option>
                     </>
                   ) : (
                     <>
@@ -769,25 +844,6 @@ export default function HomePage() {
                         </div>
                         
                         <div className="flex items-center space-x-4">
-                          {/* Statistiques de vote modernes */}
-                          <div className="klb-vote-stats">
-                            <div className="klb-vote-stat">
-                              <div className="klb-vote-label">Vote 1er Tour</div>
-                              <div className="klb-vote-value">
-                                {cabinet.votants1T}/{cabinet.effectif}
-                                <span className="klb-vote-percentage">({Math.round(cabinet.tauxVote1T)}%)</span>
-                              </div>
-                            </div>
-                            
-                            <div className="klb-vote-stat">
-                              <div className="klb-vote-label">Vote 2nd Tour</div>
-                              <div className="klb-vote-value">
-                                {cabinet.votants2T}/{cabinet.effectif}
-                                <span className="klb-vote-percentage">({Math.round(cabinet.tauxVote2T)}%)</span>
-                              </div>
-                            </div>
-                          </div>
-                          
                           {/* Bouton expansion moderne */}
                           <div className="klb-expand-btn">
                             {expandedCabinets.has(cabinet.nom) ? (

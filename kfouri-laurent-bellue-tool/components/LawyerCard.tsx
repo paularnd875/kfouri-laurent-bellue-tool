@@ -189,17 +189,6 @@ export default function LawyerCard({
                 </span>
               </div>
             )}
-
-            {/* Informations de vote */}
-            {(lawyer.raw_data?.['A voté 1T \n2025'] === '1' || 
-              lawyer.raw_data?.['A voté 2T \n2025'] === '1') && (
-              <div className="mt-1 text-xs text-green-600">
-                🗳️ Participations: {[
-                  lawyer.raw_data?.['A voté 1T \n2025'] === '1' && '1er tour 2025',
-                  lawyer.raw_data?.['A voté 2T \n2025'] === '1' && '2ème tour 2025'
-                ].filter(Boolean).join(', ')}
-              </div>
-            )}
           </div>
         </div>
         

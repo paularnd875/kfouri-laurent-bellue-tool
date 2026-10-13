@@ -15,20 +15,17 @@ interface Avocat {
   photo?: string;
   structure: string;
   classification?: 'C1' | 'C2' | 'C3' | 'Blacklist';
-  vote1erTour: boolean;
-  vote2emeTour: boolean;
   etiquettes: { [key: string]: boolean };
+  // Champs additionnels utilises par les nouveaux filtres
+  statutCabinet?: string;
+  anneeSerment?: string;
+  tailleCabinet?: string;
 }
 
 // Interface pour un cabinet avec ses avocats et statistiques
 interface CabinetData {
   nom: string;
   effectif: number;
-  votants1T: number;
-  tauxVote1T: number;
-  votants2T: number;
-  tauxVote2T: number;
-  moyenneVote: number;
   avocats: Avocat[];
 }
 
@@ -42,8 +39,6 @@ interface ColumnMapping {
   structure: number;     // Colonne AJ
   classification: number; // Colonne AT
   photo: number;         // Colonne BW
-  vote1T: number;        // Colonne BT
-  vote2T: number;        // Colonne BU
   etiquettesStart: number; // Colonne AY
   etiquettesEnd: number;   // Colonne BR
   etiquettesNames: string[]; // Noms des colonnes étiquettes
@@ -62,6 +57,19 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'effectif';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const ventresMous = searchParams.get('ventresMous') === 'true';
+    // Nouveaux filtres : mode d'exercice (CSV), bornes annee de serment, taille cabinet (CSV)
+    const modeExerciceParam = searchParams.get('modeExercice');
+    const modeExercice = modeExerciceParam
+      ? modeExerciceParam.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const sermentMinParam = searchParams.get('sermentMin');
+    const sermentMaxParam = searchParams.get('sermentMax');
+    const sermentMin = sermentMinParam ? parseInt(sermentMinParam, 10) : null;
+    const sermentMax = sermentMaxParam ? parseInt(sermentMaxParam, 10) : null;
+    const tailleCabinetParam = searchParams.get('tailleCabinet');
+    const tailleCabinet = tailleCabinetParam
+      ? tailleCabinetParam.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
 
     // Configuration Google Sheets
     let credentials;
@@ -106,8 +114,6 @@ export async function GET(request: NextRequest) {
       structure: idx.cabinet,
       classification: idx.classement,
       photo: idx.photo_url,
-      vote1T: -1, // colonnes de vote absentes de la nouvelle feuille
-      vote2T: -1,
       etiquettesStart: 0,
       etiquettesEnd: 0,
       etiquettesNames: [],
@@ -116,7 +122,7 @@ export async function GET(request: NextRequest) {
     console.log('🗂️ Mapping des colonnes:', columnMapping);
 
     // Vérifier le cache pour les données complètes
-    const cacheKey = `avocats-cabinets-full-data-photos-v1`;
+    const cacheKey = `avocats-cabinets-full-data-photos-v2`;
     let cabinetDataMap = globalCache.get<Map<string, CabinetData>>(cacheKey);
 
     if (!cabinetDataMap) {
@@ -149,10 +155,10 @@ export async function GET(request: NextRequest) {
           photo: (row[columnMapping.photo] && row[columnMapping.photo] !== '#N/A') ? row[columnMapping.photo] : undefined,
           structure: row[columnMapping.structure] || '',
           classification: row[columnMapping.classification] as 'C1' | 'C2' | 'C3' | 'Blacklist' || undefined,
-          // Colonnes de vote absentes de la nouvelle feuille -> valeurs neutres.
-          vote1erTour: false,
-          vote2emeTour: false,
-          etiquettes: {}
+          etiquettes: {},
+          statutCabinet: row[idx.statut_cabinet] || undefined,
+          anneeSerment: row[idx.annee_serment] || undefined,
+          tailleCabinet: row[idx.tranche_taille_cabinet] || undefined,
         };
 
         // Étiquettes (soutiens) détectées par nom d'en-tête, robuste au réordonnancement
@@ -170,11 +176,6 @@ export async function GET(request: NextRequest) {
           cabinetDataMap!.set(cabinetNom, {
             nom: cabinetNom,
             effectif: 0,
-            votants1T: 0,
-            tauxVote1T: 0,
-            votants2T: 0,
-            tauxVote2T: 0,
-            moyenneVote: 0,
             avocats: []
           });
         }
@@ -188,11 +189,6 @@ export async function GET(request: NextRequest) {
       // Calculer les statistiques pour chaque cabinet
       cabinetDataMap.forEach((cabinet, nom) => {
         cabinet.effectif = cabinet.avocats.length;
-        cabinet.votants1T = cabinet.avocats.filter(a => a.vote1erTour).length;
-        cabinet.votants2T = cabinet.avocats.filter(a => a.vote2emeTour).length;
-        cabinet.tauxVote1T = cabinet.effectif > 0 ? (cabinet.votants1T / cabinet.effectif) * 100 : 0;
-        cabinet.tauxVote2T = cabinet.effectif > 0 ? (cabinet.votants2T / cabinet.effectif) * 100 : 0;
-        cabinet.moyenneVote = (cabinet.tauxVote1T + cabinet.tauxVote2T) / 2;
       });
 
       // Statistiques des photos
@@ -247,6 +243,38 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Nouveaux filtres (mode d'exercice / annee de serment / taille cabinet) :
+    // un cabinet est conserve s'il possede au moins un avocat satisfaisant TOUS
+    // les filtres actifs (ET entre filtres, OR interne aux selections multiples).
+    const hasNewFilter =
+      modeExercice.length > 0 ||
+      sermentMin !== null ||
+      sermentMax !== null ||
+      tailleCabinet.length > 0;
+    if (hasNewFilter) {
+      cabinets = cabinets.filter(cabinet => {
+        return cabinet.avocats.some(avocat => {
+          if (modeExercice.length > 0) {
+            if (!avocat.statutCabinet || !modeExercice.includes(avocat.statutCabinet)) {
+              return false;
+            }
+          }
+          if (sermentMin !== null || sermentMax !== null) {
+            const annee = parseInt(avocat.anneeSerment || '', 10);
+            if (isNaN(annee)) return false;
+            if (sermentMin !== null && annee < sermentMin) return false;
+            if (sermentMax !== null && annee > sermentMax) return false;
+          }
+          if (tailleCabinet.length > 0) {
+            if (!avocat.tailleCabinet || !tailleCabinet.includes(avocat.tailleCabinet)) {
+              return false;
+            }
+          }
+          return true;
+        });
+      });
+    }
+
     // Tri
     cabinets.sort((a, b) => {
       let aValue, bValue;
@@ -259,18 +287,6 @@ export async function GET(request: NextRequest) {
             return bValue.localeCompare(aValue, 'fr', { sensitivity: 'base' });
           }
           return aValue.localeCompare(bValue, 'fr', { sensitivity: 'base' });
-        case 'tauxVote1T':
-          aValue = a.tauxVote1T;
-          bValue = b.tauxVote1T;
-          break;
-        case 'tauxVote2T':
-          aValue = a.tauxVote2T;
-          bValue = b.tauxVote2T;
-          break;
-        case 'moyenneVote':
-          aValue = a.moyenneVote;
-          bValue = b.moyenneVote;
-          break;
         case 'effectif':
         default:
           aValue = a.effectif;
